@@ -13,15 +13,13 @@ echo "  ║     停止自动同步    ║"
 echo "  ╚═══════════════════════════════════════════╝"
 echo ""
 
-# 尝试通过 pkill 终止 autosync 相关的进程
-# macOS 下 pkill 需外部命令
-if command -v pkill &>/dev/null; then
-  # 杀死 autosync.sh 的监听进程（不含自身）
-  pkill -f "fswatch.*src.*docs.*public" 2>/dev/null && echo "  ✅ 同步进程已终止" || \
-    echo "  ℹ️  未找到运行中的同步进程"
-else
-  echo "  ℹ️  请直接关闭运行同步的终端窗口，或按 Ctrl+C"
-fi
+# 1) 停止 LaunchAgent 版
+launchctl unload ~/Library/LaunchAgents/com.observability.autosync.plist 2>/dev/null && \
+  echo "  ✅ LaunchAgent 已停止" || true
+# 2) 杀死前台/后台运行中的 autosync.sh 进程
+pkill -f "autosync\.sh (live|launchd)" 2>/dev/null && \
+  echo "  ✅ 前台同步进程已终止" || \
+  echo "  ℹ️  未找到前台同步进程"
 
 # 写入日志标记
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] ===== 用户手动停止 =====" >> .autosync.log 2>/dev/null || true
