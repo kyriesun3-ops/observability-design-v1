@@ -857,83 +857,24 @@ const Seg = ({ options, value, onChange }) => (
 );
 
 // 整合卡片①：多模态调用量 + 跨模态模型调用排行（按模态趋势 ⇄ 模型排行，排行可展开看全量）
-const MmCallCard = () => {
-  const [view, setView] = useState('trend');
-  const [open, setOpen] = useState(false);
-  const ranked = [...MM_GEN_MODELS].sort((a, b) => b.calls - a.calls);
-  const total = ranked.reduce((s, m) => s + m.calls, 0);
-  const max = ranked[0].calls;
-  const top = ranked.slice(0, 6);
-  const modalityCell = (m) => (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-      <span style={{ width: 8, height: 8, borderRadius: '50%', background: MM_MODALITY_META[m].color, display: 'inline-block' }} />
-      {MM_MODALITY_META[m].label}
-    </span>
-  );
-  const extra = view === 'rank' ? (
-    <span onClick={() => setOpen(true)} title="展开全量" style={{ cursor: 'pointer', color: COLORS.textLight, fontSize: '15px', display: 'inline-flex' }}>
-      <FullscreenOutlined />
-    </span>
-  ) : null;
-  const control = (
-    <Seg value={view} onChange={setView}
-      options={[{ value: 'trend', label: '按模态趋势' }, { value: 'rank', label: '模型排行' }]} />
-  );
-  return (
-    <XCard title="多模态调用量" value={`${total.toLocaleString()} 次`}
-      tip="多模态请求总调用次数，跨模态(图像/音频/视频)归一化为「次」。可在按模态趋势与跨模态模型调用排行之间切换，排行展开看全量。"
-      models="多模态模型：图像(文生图/图生图)、音频(TTS/STT)、视频(文生视频/视频理解)"
-      extra={extra} control={control}>
-      {view === 'trend' ? (
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} />
-            <Tooltip content={<CustomTooltip unit=" 次" />} cursor={{ fill: '#f1f5f9' }} />
-            <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
-            <Bar dataKey="mmImageReq" name="图像" stackId="a" fill={MODAL_COLORS.image} maxBarSize={30} />
-            <Bar dataKey="mmAudioReq" name="音频" stackId="a" fill={MODAL_COLORS.audio} maxBarSize={30} />
-            <Bar dataKey="mmVideoReq" name="视频" stackId="a" fill={MODAL_COLORS.video} maxBarSize={30} radius={[2, 2, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      ) : (
-        <div style={{ height: '100%', overflowY: 'auto', paddingTop: '6px' }}>
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '10px' }}>
-            {Object.entries(MM_MODALITY_META).map(([k, meta]) => (
-              <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#64748b' }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: meta.color }} />{meta.label}
-              </span>
-            ))}
-          </div>
-          {top.map(m => (
-            <div key={m.name} style={{ marginBottom: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '5px' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: MM_MODALITY_META[m.modality].color, display: 'inline-block' }} />
-                  <span style={{ fontFamily: 'monospace', color: COLORS.blue }}>{m.name}</span>
-                </span>
-                <span style={{ color: COLORS.textMain, fontWeight: 600 }}>{m.calls.toLocaleString()} 次</span>
-              </div>
-              <div style={{ height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ width: `${(m.calls / max * 100).toFixed(0)}%`, height: '100%', background: MM_MODALITY_META[m.modality].color, borderRadius: '4px' }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      <Modal open={open} onCancel={() => setOpen(false)} footer={null} width={720} title="多模态模型调用排行 · 全量">
-        <Table columns={[
-          { title: '排名', key: 'r', width: 56, render: (_t, _r, i) => <span style={{ fontWeight: 600, color: i < 5 ? COLORS.orange : COLORS.textMain }}>{i + 1}</span> },
-          { title: '模型', dataIndex: 'name', key: 'name', render: e => <span style={{ fontFamily: 'monospace', color: COLORS.blue }}>{e}</span> },
-          { title: '模态', dataIndex: 'modality', key: 'modality', render: m => modalityCell(m) },
-          { title: '调用量', dataIndex: 'calls', key: 'calls', align: 'right', sorter: (a, b) => a.calls - b.calls, defaultSortOrder: 'descend', render: e => e.toLocaleString() },
-          { title: '占比', key: 'pct', align: 'right', render: (_t, r) => (r.calls / total * 100).toFixed(1) + '%' },
-        ]} dataSource={ranked} pagination={false} rowKey="name" size="small" scroll={{ y: 360 }} />
-      </Modal>
-    </XCard>
-  );
-};
+const MmCallCard = () => (
+  <XCard title="多模态调用量" value="12,480 次"
+    tip="按模态 (图像/音频/视频) 堆叠统计的多模态请求次数，跨模态归一化为「次」。"
+    models="多模态模型：图像(文生图/图生图)、音频(TTS/STT)、视频(文生视频/视频理解)">
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
+        <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} />
+        <Tooltip content={<CustomTooltip unit=" 次" />} cursor={{ fill: '#f1f5f9' }} />
+        <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+        <Bar dataKey="mmImageReq" name="图像" stackId="a" fill={MODAL_COLORS.image} maxBarSize={30} />
+        <Bar dataKey="mmAudioReq" name="音频" stackId="a" fill={MODAL_COLORS.audio} maxBarSize={30} />
+        <Bar dataKey="mmVideoReq" name="视频" stackId="a" fill={MODAL_COLORS.video} maxBarSize={30} radius={[2, 2, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  </XCard>
+);
 
 // 整合卡片②：平均生成时长 —— 图像/视频/音频 标签切换(默认视频) + 总览/按模型(useBreakdown) + 分位
 const GenTimeCard = () => {
