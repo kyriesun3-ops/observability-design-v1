@@ -604,20 +604,9 @@ const CostView = () => {
       {/* 消耗排行 */}
       <Card
         title={
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>按消耗费用对 API Key / 用户排名,可点击表头或下方按钮按 API Key、用户排序。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：文本 + 多模态全部模型</div></div>} placement="top">
-              <span className="card-title-hint">消耗排行</span>
-            </ATooltip>
-            <div style={{ display: 'flex', gap: '8px', fontSize: '13px', fontWeight: 400 }}>
-              <span style={{ color: COLORS.textLight }}>排序:</span>
-              {[['cost', '费用'], ['apiKey', 'API Key'], ['user', '用户']].map(([k, lbl]) => (
-                <span key={k} onClick={() => setRankSort(k)}
-                  style={{ cursor: 'pointer', color: rankSort === k ? COLORS.blue : COLORS.textMuted, fontWeight: rankSort === k ? 600 : 400 }}>
-                  {lbl}
-                </span>
-              ))}
-            </div>
-          </div>
+          <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>按消耗费用对 API Key / 用户排名（默认按费用从高到低）。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：文本 + 多模态全部模型</div></div>} placement="top">
+            <span className="card-title-hint">消耗排行</span>
+          </ATooltip>
         }
         className="portkey-card" style={{ height: 'auto', padding: 0 }}>
         <div className="card-body" style={{ padding: '12px 24px 24px 24px' }}>
