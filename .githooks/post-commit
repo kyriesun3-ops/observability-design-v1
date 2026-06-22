@@ -1,0 +1,3 @@
+#!/bin/bash
+# manual commit → auto push
+git push origin main 2>/dev/null || true

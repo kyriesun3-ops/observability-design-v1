@@ -26,3 +26,8 @@ dist-ssr
 # local backups & design feedback (not part of prototype)
 *.bak.*
 修改意见/
+
+# Auto-sync log
+.autosync.log
+.autosync.pid
+.autosync.lock
