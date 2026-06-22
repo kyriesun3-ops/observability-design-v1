@@ -1,39 +1,55 @@
 #!/bin/bash
-#
+# ═══════════════════════════════════════════════════════════════
 #  autosync.sh — 原型文件变更自动同步到 GitHub
-#  (sleep 轮询版：无外部依赖，兼容 macOS LaunchAgent / nohup 后台运行)
+#  (fswatch + FSEvents 事件驱动版：文件变更即时触发，零 CPU 空闲占用)
 #
 #  用法:
-#    ./autosync.sh                前台运行（实时显示同步日志）
+#    ./autosync.sh                前台运行（实时日志，按 Ctrl+C 退出）
 #    ./autosync.sh status         查看最近同步记录
-#    ./autosync.sh install-agent  安装 LaunchAgent（开机自启）
+#    ./autosync.sh install-agent  安装 LaunchAgent（开机自启后台服务）
 #    ./autosync.sh uninstall-agent  卸载 LaunchAgent
 #
-#  工作机制:
-#    1. 每 POLL_INTERVAL 秒检查一次文件变更
-#    2. 检测到变更后自动 git add → commit → push
+#  工作原理:
+#    1. fswatch 利用 macOS 原生 FSEvents API 监听文件变更
+#    2. 检测到变更后自动 git add → commit → push → GitHub
 #    3. 推送到 main → 触发 GitHub Actions 部署 Pages
 #
 #  启动方式：
-#    · LaunchAgent（推荐）：登录后自动启动，详见 install-agent 命令
-#    · 双击 autosync-start.command：打开终端前台运行
+#    · LaunchAgent（推荐）：双击 autosync-start.command → 安装并启动
+#      首次安装后，之后每次登录自动运行，无需任何操作
+#    · 也可直接双击 autosync-start.command 在前台运行（显示实时日志）
 #
 #  停止方式:
-#    · LaunchAgent 版：launchctl unload ~/Library/LaunchAgents/com.observability.autosync.plist
-#    · 关闭终端窗口 或 Ctrl+C
+#    · LaunchAgent 版：双击 autosync-stop.command
+#    · 前台运行：关闭终端窗口 或 Ctrl+C
+# ═══════════════════════════════════════════════════════════════
 
-set -uo pipefail   # 注意：不用 -e，后台运行时的 nice 警告不应终止脚本
+set -uo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_DIR"
 
 LOG_FILE="$PROJECT_DIR/.autosync.log"
 
-# 轮询间隔（秒）
-POLL_INTERVAL=10
+# ──── 配置 ────────────────────────────────────────────────
+# fswatch 延迟（秒）：文件停止变动后等待多久才触发同步
+# 太短 → 连续保存时频繁提交；太长 → 同步滞后
+LATENCY=5
+
+# 监听路径
+WATCH_TARGETS="src docs public"
+WATCH_FILES="index.html package.json vite.config.js README.md .github"
 
 # ──── 前台监听循环 ───────────────────────────────────────────
 watch_loop() {
+  # 检查 fswatch
+  if ! command -v fswatch &>/dev/null; then
+    echo ""
+    echo "  ❌ 需要 fswatch，请先安装：brew install fswatch"
+    echo "     安装后重试：./autosync.sh"
+    exit 1
+  fi
+
   local TITLE="可观测原型 Auto-Sync"
 
   echo ""
@@ -41,20 +57,33 @@ watch_loop() {
   echo "  ║     $TITLE    ║"
   echo "  ╚═══════════════════════════════════════════════╝"
   echo ""
-  echo "  ● 原型文件变更自动同步"
-  echo "    监听: 全仓库（排除 node_modules/ dist/ .git/ 等）"
-  echo "    轮询: 每 ${POLL_INTERVAL} 秒"
+  echo "  ● 文件变更自动同步（事件驱动，零 CPU 空闲占用）"
+  echo "    监听: src/  docs/  public/  配置文件"
+  echo "    引擎: fswatch + FSEvents（macOS 原生）"
+  echo "    延迟: ${LATENCY} 秒防抖"
   echo "    日志:  .autosync.log"
   echo ""
   echo "  ── 在编辑器中保存文件后，变更将在数秒内自动推送 ──"
-  echo "  ── 按 Ctrl+C 或 launchctl unload 停止 ──"
+  echo "  ── 按 Ctrl+C 或关闭此窗口停止 ──"
   echo ""
 
   echo "" >> "$LOG_FILE"
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] ===== 自动同步启动 =====" >> "$LOG_FILE"
 
   while true; do
-    sleep "$POLL_INTERVAL"
+    # 阻塞等待文件变更事件（事件驱动，零 CPU）
+    # 默认后端 = FSEvents（macOS 原生，无需指定 -m）
+    # -1        收到第一批事件后立即退出，进入 git 流程
+    # -l LATENCY 文件停止变动后等 LATENCY 秒才触发，防连续保存频闪
+    fswatch -1 -l "$LATENCY" \
+      --exclude='\.git/' \
+      --exclude='/node_modules/' \
+      --exclude='/dist/' \
+      --exclude='/修改意见/' \
+      --exclude='\.bak\.' \
+      --exclude='\.autosync\.' \
+      $WATCH_TARGETS $WATCH_FILES 2>/dev/null || true
+
     poll_once
   done
 }
@@ -67,7 +96,7 @@ poll_once() {
       return 0
     fi
 
-    # 检查是否有变更（排除 .autosync.log 等）
+    # 检查是否有变更
     if git diff --quiet && git diff --cached --quiet && git ls-files --others --exclude-standard --quiet; then
       return 0
     fi
@@ -134,7 +163,7 @@ PLIST_DEST="$HOME/Library/LaunchAgents/$PLIST_NAME"
 install_launchd_agent() {
   mkdir -p "$HOME/Library/LaunchAgents"
 
-  cat > "$PLIST_DEST" << PLIST_EOF
+  cat > "$PLIST_DEST" << AGENT_EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -153,6 +182,12 @@ install_launchd_agent() {
     <true/>
     <key>KeepAlive</key>
     <true/>
+    <key>WatchPaths</key>
+    <array>
+        <string>${PROJECT_DIR}/src</string>
+        <string>${PROJECT_DIR}/docs</string>
+        <string>${PROJECT_DIR}/public</string>
+    </array>
     <key>StandardErrorPath</key>
     <string>${LOG_FILE}</string>
     <key>StandardOutPath</key>
@@ -163,10 +198,10 @@ install_launchd_agent() {
         <string>/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     </dict>
     <key>ThrottleInterval</key>
-    <integer>10</integer>
+    <integer>5</integer>
 </dict>
 </plist>
-PLIST_EOF
+AGENT_EOF
 
   chmod 644 "$PLIST_DEST"
   launchctl load "$PLIST_DEST" 2>&1
