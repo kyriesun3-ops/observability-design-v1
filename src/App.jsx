@@ -1,4 +1,4 @@
-import { useState, createContext, useContext } from 'react';
+import { useState, useEffect, createContext, useContext } from 'react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
@@ -6,9 +6,10 @@ import {
 import { ThunderboltOutlined, WarningOutlined, SafetyCertificateOutlined,
   DashboardOutlined, PlaySquareOutlined, DesktopOutlined,
   SyncOutlined, SearchOutlined, CalendarOutlined, DownOutlined,
-  AppstoreOutlined, RightOutlined,
+  AppstoreOutlined, RightOutlined, FullscreenOutlined, LineChartOutlined, PartitionOutlined,
   CreditCardOutlined, UserOutlined, InfoCircleOutlined, GlobalOutlined } from '@ant-design/icons';
-import { Card, Table, Tag, Tooltip as ATooltip } from 'antd';
+import { Card, Table, Tag, Tooltip as ATooltip, Select, Modal, DatePicker } from 'antd';
+import dayjs from 'dayjs';
 
 // --- 格式化工具 ---
 const rand = (min, max) => Math.floor(Math.random() * (max - min)) + min;
@@ -20,7 +21,7 @@ const fmtM = (n) => (n / 1_000_000).toFixed(2) + 'M';
 // --- MOCK DATA ---
 
 const generateTimeSeries = () => {
-  const dates = ['03 May', '08 May', '13 May', '18 May', '23 May', '28 May', '01 Jun'];
+  const dates = ['05月03日', '05月08日', '05月13日', '05月18日', '05月23日', '05月28日', '06月01日'];
   return dates.map((date) => ({
     date,
     // Overview
@@ -107,10 +108,37 @@ const generateTimeSeries = () => {
     mmVideoP50: rand(5, 10),
     mmVideoP95: rand(15, 30),
     mmVideoP99: rand(30, 60),
+    // Desk
+    deskSessions: Math.floor(Math.random() * 1000) + 500,
+    activeDeskUsers: Math.floor(Math.random() * 200) + 100,
+    // Desk - 成本按规格 ($)
+    deskCostStandard: rand(80, 180),
+    deskCostGpu: rand(200, 520),
+    deskCostHighmem: rand(60, 140),
+    // Desk - 资源利用率 (%)
+    deskCpuUtil: rand(30, 80),
+    deskMemUtil: rand(30, 80),
+    deskDiskUtil: rand(30, 80),
+    deskGpuUtil: rand(30, 80),
+    // Desk - 桌面状态分布 (台)
+    deskRunning: rand(160, 240),
+    deskStopped: rand(40, 110),
+    // Desk - 连接质量 RTT (ms)
+    deskRttP50: rand(45, 90),
+    deskRttP95: rand(110, 210),
   }));
 };
 
 const dailyData = generateTimeSeries();
+
+const deskDetailData = [
+  { id: 'desk_rd_001', user: 'usr_rd_01', spec: 'GPU 型', hours: '186 h', util: '82%', status: 'running' },
+  { id: 'desk_rd_007', user: 'usr_rd_07', spec: 'GPU 型', hours: '142 h', util: '63%', status: 'running' },
+  { id: 'desk_mkt_03', user: 'usr_mkt_05', spec: '标准型', hours: '98 h', util: '44%', status: 'running' },
+  { id: 'desk_ops_11', user: 'usr_ops_12', spec: '高内存型', hours: '12 h', util: '6%', status: 'stopped' },
+  { id: 'desk_hr_004', user: 'usr_hr_02', spec: '标准型', hours: '0 h', util: '0%', status: 'released' },
+];
+
 
 const errorTypesData = [
   { name: '429 Rate Limit', value: 350 },
@@ -148,17 +176,6 @@ const consumeRankData = [
   { key: 'k5', apiKey: 'sk-...i9j0', user: 'usr_hr_02', tokens: 6_400_000, media: '95', cost: 480.40 },
 ];
 
-
-// --- Desk: 使用明细 (持久专属, 找闲置与重度用户) ---
-// --- Desk: 使用明细 (持久专属, 找低利用率/未释放桌面). status 对接系统真实状态 ---
-// status: running 运行中 / stopped 已关机 / released 已释放
-const deskDetailData = [
-  { id: 'desk_rd_001', user: 'usr_rd_01', spec: 'GPU 型', hours: '186 h', util: '82%', status: 'running' },
-  { id: 'desk_rd_007', user: 'usr_rd_07', spec: 'GPU 型', hours: '142 h', util: '63%', status: 'running' },
-  { id: 'desk_mkt_03', user: 'usr_mkt_05', spec: '标准型', hours: '98 h', util: '44%', status: 'running' },
-  { id: 'desk_ops_11', user: 'usr_ops_12', spec: '高内存型', hours: '12 h', util: '6%', status: 'stopped' },
-  { id: 'desk_hr_004', user: 'usr_hr_02', spec: '标准型', hours: '0 h', util: '0%', status: 'released' },
-];
 
 const COLORS = {
   blue: '#1677ff',
@@ -202,8 +219,10 @@ const GEN_MODAL_COLORS = {
 // --- REUSABLE COMPONENTS ---
 // 当前时间窗口文案，由全局时间筛选驱动，所有卡片副标题跟随
 const TimeRangeContext = createContext('数据来自 05月03日 至 06月01日');
+// 全局筛选：当前生效的「模型」筛选值列表 (空 = 未筛选)，驱动各指标卡的按模型联动
+const FilterContext = createContext([]);
 
-const XCard = ({ title, value, subtitle, tip, models, children }) => {
+const XCard = ({ title, value, subtitle, tip, models, extra, control, children }) => {
   const rangeLabel = useContext(TimeRangeContext);
   const hasHint = tip || models;
   const hintContent = hasHint ? (
@@ -219,16 +238,25 @@ const XCard = ({ title, value, subtitle, tip, models, children }) => {
   return (
     <div className="portkey-card">
       <div className="card-header">
-        <div className="card-title">
-          {hasHint ? (
-            <ATooltip title={hintContent} placement="top">
-              <span className="card-title-hint">{title}</span>
-            </ATooltip>
-          ) : (
-            <span>{title}</span>
-          )}
+        {/* 标题行：标题(hover 浮显说明) + 右侧展开图标，与标题对齐 */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+          <div className="card-title" style={{ marginBottom: 0 }}>
+            {hasHint ? (
+              <ATooltip title={hintContent} placement="top">
+                <span className="card-title-hint">{title}</span>
+              </ATooltip>
+            ) : (
+              <span>{title}</span>
+            )}
+          </div>
+          {extra}
         </div>
-        <div className="card-value">{value}</div>
+        {/* 数值行：大数字 + 右侧控件(总览/按模型 等)，与数字中间对齐 */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', margin: '6px 0 2px' }}>
+          <div className="card-value" style={{ marginBottom: 0 }}>{value}</div>
+          {control}
+        </div>
+        {/* 副标题：数据来源时间区间，或卡片自定义副标题 */}
         <div className="card-subtitle">{subtitle || rangeLabel}</div>
       </div>
       <div className="card-body">
@@ -262,31 +290,40 @@ const CustomTooltip = ({ active, payload, label, unit }) => {
 
 // --- TIME FILTER COMPONENT ---
 const timeOptions = [
-  { label: 'Last 15 minutes', value: '15m' },
-  { label: 'Last hour', value: '1h' },
-  { label: 'Last 24 hours', value: '24h' },
-  { label: 'Yesterday', value: 'yesterday' },
-  { label: 'Last 3 days', value: '3d' },
-  { label: 'Last 7 days', value: '7d' },
-  { label: 'Last 14 days', value: '14d' },
-  { label: 'Last 30 days', value: '30d' },
-  { label: 'Last 90 days', value: '90d' },
-  { label: 'Custom', value: 'custom' },
+  { label: '近1小时', value: '1h' },
+  { label: '近1天', value: '24h' },
+  { label: '近3天', value: '3d' },
+  { label: '近7天', value: '7d' },
+  { label: '近1个月', value: '30d' },
+  { label: '自定义', value: 'custom' },
 ];
 
-const TimeFilter = ({ selected, setSelected }) => (
-  <div className="date-filter" style={{ cursor: 'pointer' }}>
-    <CalendarOutlined style={{ color: '#64748b' }} />
-    <select
-      value={selected}
-      onChange={e => setSelected(e.target.value)}
-      style={{ border: 'none', background: 'transparent', fontSize: '14px', color: COLORS.textMain, marginLeft: '4px' }}
-    >
-      {timeOptions.map(opt => (
-        <option key={opt.value} value={opt.value}>{opt.label}</option>
-      ))}
-    </select>
-    <DownOutlined style={{ fontSize: '10px', marginLeft: '4px', color: COLORS.textLight }} />
+const TimeFilter = ({ selected, setSelected, customRange, setCustomRange }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div className="date-filter" style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
+      <CalendarOutlined style={{ color: '#64748b' }} />
+      <select
+        value={selected}
+        onChange={e => setSelected(e.target.value)}
+        style={{ border: 'none', background: 'transparent', fontSize: '14px', color: COLORS.textMain, marginLeft: '4px', outline: 'none', cursor: 'pointer' }}
+      >
+        {timeOptions.map(opt => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+      <DownOutlined style={{ fontSize: '10px', marginLeft: '4px', color: COLORS.textLight }} />
+    </div>
+    {selected === 'custom' && (
+      <DatePicker.RangePicker
+        showTime={{ format: 'HH:mm' }}
+        format="YYYY-MM-DD HH:mm"
+        placeholder={['开始时间', '结束时间']}
+        value={customRange}
+        onChange={(dates) => setCustomRange(dates)}
+        size="small"
+        style={{ borderRadius: '6px', border: '1px solid #cbd5e1' }}
+      />
+    )}
   </div>
 );
 
@@ -312,6 +349,84 @@ const KpiCard = ({ label, value, icon, color, hint }) => {
     </div>
   );
 };
+
+// --- 总览 (Overview) —— 关键指标一览 ---
+const RESOURCE_COST = [
+  { name: 'API 路由', value: 18600 },
+  { name: 'GPU 容器实例', value: 12400 },
+  { name: '云电脑 Desk', value: 8420 },
+  { name: '云硬盘', value: 3260 },
+];
+const RESOURCE_COLORS = { 'API 路由': COLORS.blue, 'GPU 容器实例': COLORS.purple, '云电脑 Desk': COLORS.cyan, '云硬盘': COLORS.orange };
+
+const OverviewView = () => {
+  const totalReq = dailyData.reduce((s, d) => s + d.requests, 0);
+  const totalCost = RESOURCE_COST.reduce((s, r) => s + r.value, 0);
+  const avgErr = (dailyData.reduce((s, d) => s + d.errorRate, 0) / dailyData.length).toFixed(1);
+  const avgP50 = Math.round(dailyData.reduce((s, d) => s + d.p50, 0) / dailyData.length);
+  const kpis = [
+    { label: '全平台总成本', value: fmtCNY(totalCost), color: COLORS.blue, hint: '四类资源(API 路由 / GPU 容器实例 / 云电脑 / 云硬盘)摊销成本合计，跟随时间筛选。' },
+    { label: '活跃用户', value: '1,284', color: COLORS.purple, hint: '所选时间窗口内发生过任意被计量行为的去重用户数。' },
+    { label: '总请求数', value: totalReq.toLocaleString(), color: COLORS.cyan, hint: '所选时间窗口内的总请求数。' },
+    { label: '缓存命中率', value: '65.4%', color: COLORS.green, hint: '命中缓存的请求数 / 总请求数。' },
+    { label: '报错率', value: avgErr + '%', color: COLORS.orange, hint: '错误请求数 / 总请求数。' },
+    { label: '平均延迟 P50', value: avgP50 + ' ms', color: COLORS.red, hint: '端到端延迟 P50（中位数）。' },
+  ];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px' }}>
+        {kpis.map(k => <KpiCard key={k.label} label={k.label} value={k.value} color={k.color} hint={k.hint} />)}
+      </div>
+      <div className="dashboard-grid">
+        <XCard title="全平台成本趋势" value={fmtCNY(totalCost)}
+          tip="所选时间窗口内全平台每日摊销成本走势，跟随时间筛选。"
+          models="覆盖 API 路由 / GPU 容器实例 / 云电脑 / 云硬盘 四类资源">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="ovCost" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={COLORS.blue} stopOpacity={0.25} />
+                  <stop offset="100%" stopColor={COLORS.blue} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} tickFormatter={v => '¥' + v} />
+              <Tooltip content={<CustomTooltip unit=" 元" />} cursor={CROSSHAIR} />
+              <Area type="monotone" dataKey="spend" name="成本" stroke={COLORS.blue} strokeWidth={2} fill="url(#ovCost)" activeDot={ACTIVE_DOT} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </XCard>
+
+        <XCard title="成本构成 (按资源类型)" value={fmtCNY(totalCost)}
+          tip="四类资源的成本占比（环形图），跟随时间筛选。"
+          models="不涉及单一模型(资源维度聚合)">
+          <div style={{ display: 'flex', height: '100%' }}>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={RESOURCE_COST} cx="50%" cy="50%" innerRadius="55%" outerRadius="80%" paddingAngle={2} dataKey="value" nameKey="name" stroke="none">
+                    {RESOURCE_COST.map((e, i) => <Cell key={i} fill={RESOURCE_COLORS[e.name] || COLORS.gray} />)}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip unit=" 元" />} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ width: '150px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              {RESOURCE_COST.map(item => (
+                <div key={item.name} style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: RESOURCE_COLORS[item.name] || COLORS.gray }}></div>
+                  <div style={{ fontSize: '11px', color: COLORS.textMain }}>{item.name}: {((item.value / totalCost) * 100).toFixed(0)}%</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </XCard>
+      </div>
+    </div>
+  );
+};
+
 
 const CostView = () => {
   const [provMetric, setProvMetric] = useState('cost'); // cost | tokens
@@ -574,67 +689,61 @@ const CacheView = () => {
     ...d,
     cacheHits: d.simpleHits + d.semanticHits
   }));
-  const totalHits = chartData.reduce((s, d) => s + d.cacheHits, 0);
   const totalHitTokens = dailyData.reduce((s, d) => s + d.cacheHitTokens, 0);
+  const hitRate = 65.4; // 命中率 (mock)
+  const totalSavings = dailyData.reduce((s, d) => s + d.savings, 0);
+  const hits = useBreakdown({
+    totalData: chartData,
+    totalKey: 'cacheHits',
+    totalName: '缓存命中token数',
+    totalColor: COLORS.blue,
+    byModel: cacheHitsByModel,
+    agg: 'sum',
+    unit: 'k tokens',
+    yTickFormatter: v => v + 'k',
+    modalTitle: '缓存命中token数 · 按模型明细',
+    valueFmt: v => Math.round(v).toLocaleString() + 'k',
+    pctColumnTitle: '缓存命中率',
+    pctColumnRender: (_t, r) => MODEL_CACHE_HIT_RATES[r.model] || '65.4%'
+  });
+  const savings = useBreakdown({ totalData: dailyData, totalKey: 'savings', totalName: '节省成本', totalColor: COLORS.green, byModel: cacheSavingsByModel, agg: 'sum', unit: ' 元', yTickFormatter: v => '¥' + v, modalTitle: '缓存节省成本 · 按模型明细', valueFmt: v => fmtCNY(v) });
   return (
     <div className="dashboard-grid">
-      <XCard title="缓存命中次数" value={totalHits.toLocaleString()}
-        tip="所选时间窗口内命中缓存(精确匹配 + 语义匹配)的请求次数,命中越多越能降低重复推理成本。"
-        models="文本模型(命中缓存的对话/补全请求)">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} />
-            <Tooltip content={<CustomTooltip unit=" 次" />} cursor={CROSSHAIR} />
-            <Line type="monotone" dataKey="cacheHits" name="缓存命中" stroke={COLORS.blue} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
-          </LineChart>
-        </ResponsiveContainer>
+      <XCard
+        title="缓存命中token数"
+        value={
+          <span style={{ display: 'flex', alignItems: 'baseline', gap: '16px' }}>
+            <span>{fmtM(totalHitTokens)}</span>
+            <span style={{ fontSize: '14px', fontWeight: 500, color: COLORS.textLight }}>命中率 {hitRate}%</span>
+          </span>
+        }
+        tip="缓存命中节省的 Token 总量与命中率;曲线展示缓存命中token数走势。命中越多、命中率越高，越能降低重复推理成本。"
+        models="文本模型(命中缓存复用的输入/输出 Token)"
+        extra={hits.extra} control={hits.control}>
+        {hits.chart}
+        {hits.modal}
       </XCard>
-      <XCard title="缓存命中率" value="65.4%"
-        tip="缓存命中请求数占总请求数的比例,衡量缓存对整体流量的覆盖效果。"
-        models="文本模型(可走缓存的对话/补全请求)">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} domain={[0, 100]} />
-            <Tooltip content={<CustomTooltip unit="%" />} cursor={CROSSHAIR} />
-            <Line type="monotone" dataKey="hitRate" name="命中率" stroke={COLORS.green} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
-          </LineChart>
-        </ResponsiveContainer>
-      </XCard>
-      <XCard title="缓存命中 Tokens" value={fmtM(totalHitTokens)}
-        tip="缓存命中所节省的 Token 总量,单位按百万 (M) 计;不足 1M 时展示两位小数。该值越大说明缓存节省的推理量越多。"
-        models="文本模型(命中缓存复用的输入/输出 Token)">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} tickFormatter={v => (v / 1_000_000).toFixed(1) + 'M'} />
-            <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
-            <Bar dataKey="cacheHitTokens" name="命中 Tokens" fill={COLORS.cyan} maxBarSize={30} radius={[2, 2, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+      <XCard title="缓存节省成本" value={fmtCNY(totalSavings)}
+        tip="缓存命中的请求免去了真实模型调用，按其原应产生的费用估算累计节省金额。"
+        models="文本模型(命中缓存复用的请求)"
+        extra={savings.extra} control={savings.control}>
+        {savings.chart}
+        {savings.modal}
       </XCard>
     </div>
   );
 };
 // --- 2. Error Analytics ---
-const ErrorsView = () => (
+const ErrorsView = () => {
+  const rate = useBreakdown({ totalData: dailyData, totalKey: 'errorRate', totalName: '报错率', totalColor: COLORS.red, byModel: errorRateByModel, agg: 'avg', unit: '%', modalTitle: '报错率 · 按模型明细', valueFmt: v => v.toFixed(1) + '%' });
+  return (
   <div className="dashboard-grid">
     <XCard title="报错率" value="4.2%"
       tip="报错请求数占总请求数的比例,反映服务整体稳定性。"
-      models="文本 + 多模态全部模型的 API 请求">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-          <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-          <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} />
-          <Tooltip content={<CustomTooltip unit="%" />} cursor={CROSSHAIR} />
-          <Line type="monotone" dataKey="errorRate" name="报错率" stroke={COLORS.red} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
-        </LineChart>
-      </ResponsiveContainer>
+      models="文本 + 多模态全部模型的 API 请求"
+      extra={rate.extra} control={rate.control}>
+      {rate.chart}
+      {rate.modal}
     </XCard>
     <XCard title="报错数量" value="850"
       tip="按 HTTP 状态码 (429 限流 / 500 服务端 / 401 鉴权) 堆叠展示的报错次数。"
@@ -678,7 +787,7 @@ const ErrorsView = () => (
         </div>
       </div>
     </XCard>
-    <XCard title="自动恢复请求" value="120"
+    <XCard title="挽救请求数" value="120"
       tip="通过自动重试 / 故障转移成功挽回的报错请求数,反映容错能力。"
       models="文本 + 多模态全部模型的 API 请求">
       <ResponsiveContainer width="100%" height="100%">
@@ -687,67 +796,95 @@ const ErrorsView = () => (
           <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
           <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} />
           <Tooltip content={<CustomTooltip />} cursor={CROSSHAIR} />
-          <Line type="monotone" dataKey="rescued" name="自动恢复" stroke={COLORS.green} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
+          <Line type="monotone" dataKey="rescued" name="挽救请求数" stroke={COLORS.green} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
         </LineChart>
       </ResponsiveContainer>
     </XCard>
   </div>
-);
+  );
+};
 
 // --- 4. Latency Analytics ---
 const LatencyView = () => {
   const [percentile, setPercentile] = useState('p50');
+  const pSelect = (
+    <select value={percentile} onChange={e => setPercentile(e.target.value)} style={{ padding: '3px 6px', borderRadius: '4px', border: `1px solid ${COLORS.gray}`, fontSize: '12px' }}>
+      <option value="p50">P50</option>
+      <option value="p95">P95</option>
+      <option value="p99">P99</option>
+    </select>
+  );
+  const lat = useBreakdown({ totalData: dailyData, totalKey: percentile, totalName: `${percentile.toUpperCase()} 延迟`, totalColor: COLORS.blue, byModel: latByModel[percentile], agg: 'avg', unit: ' ms', modalTitle: '端到端延迟 · 按模型明细', valueFmt: v => Math.round(v) + ' ms', controlExtra: pSelect });
+  const ttft = useBreakdown({ totalData: dailyData, totalKey: 'ttft', totalName: '首字延迟', totalColor: COLORS.green, byModel: ttftByModel, agg: 'avg', unit: ' ms', modalTitle: '首字延迟 TTFT · 按模型明细', valueFmt: v => Math.round(v) + ' ms' });
   return (
     <div className="dashboard-grid">
       <XCard title="平均延迟" value={`${percentile.toUpperCase()}: 1.2s`}
         tip="请求端到端总耗时的分位数 (P50/P95/P99),可切换分位观察长尾延迟。"
-        models="文本模型(对话/补全请求)">
-        <div style={{ position: 'absolute', top: '16px', right: '24px', zIndex: 10 }}>
-          <select value={percentile} onChange={e => setPercentile(e.target.value)} style={{ padding: '4px 8px', borderRadius: '4px', border: `1px solid ${COLORS.gray}` }}>
-            <option value="p50">P50</option>
-            <option value="p95">P95</option>
-            <option value="p99">P99</option>
-          </select>
-        </div>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={dailyData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} />
-            <Tooltip content={<CustomTooltip unit=" ms" />} cursor={CROSSHAIR} />
-            <Line type="monotone" dataKey={percentile} name={`${percentile.toUpperCase()} 延迟`} stroke={COLORS.blue} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
-          </LineChart>
-        </ResponsiveContainer>
+        models="文本模型(对话/补全请求)"
+        extra={lat.extra} control={lat.control}>
+        {lat.chart}
+        {lat.modal}
       </XCard>
       <XCard title="平均首字延迟 (TTFT)" value="350 ms"
         tip="从发起请求到返回第一个 Token 的耗时,衡量流式响应的初始体验。"
-        models="文本模型(流式对话/补全请求)">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} />
-            <Tooltip content={<CustomTooltip unit=" ms" />} cursor={CROSSHAIR} />
-            <Line type="monotone" dataKey="ttft" name="首字延迟" stroke={COLORS.green} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
-          </LineChart>
-        </ResponsiveContainer>
+        models="文本模型(流式对话/补全请求)"
+        extra={ttft.extra} control={ttft.control}>
+        {ttft.chart}
+        {ttft.modal}
       </XCard>
-
     </div>
   );
 };
 
-// --- 5. Multimodal Analytics (MVP: 5 核心指标) ---
-const MultimodalView = () => {
-  const [procPercentile, setProcPercentile] = useState('p50');
-  const procKeyMap = { p50: 'mmP50', p95: 'mmP95', p99: 'mmP99' };
+// --- 5. Multimodal Analytics ---
+// 文本分段切换控件：用于「按模态趋势/模型排行」「模态标签」等卡内视图切换
+const Seg = ({ options, value, onChange }) => (
+  <div style={{ display: 'inline-flex', background: '#f1f5f9', borderRadius: '6px', padding: '2px' }}>
+    {options.map(o => {
+      const active = value === o.value;
+      return (
+        <span key={o.value} onClick={() => onChange(o.value)}
+          style={{ padding: '3px 10px', fontSize: '12px', borderRadius: '4px', cursor: 'pointer',
+            color: active ? COLORS.blue : '#64748b', background: active ? '#fff' : 'transparent',
+            fontWeight: active ? 600 : 400, boxShadow: active ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+            display: 'inline-flex', alignItems: 'center', gap: '4px', transition: 'all .15s' }}>
+          {o.dot && <span style={{ width: 7, height: 7, borderRadius: '50%', background: o.dot }} />}
+          {o.label}
+        </span>
+      );
+    })}
+  </div>
+);
 
+// 整合卡片①：多模态调用量 + 跨模态模型调用排行（按模态趋势 ⇄ 模型排行，排行可展开看全量）
+const MmCallCard = () => {
+  const [view, setView] = useState('trend');
+  const [open, setOpen] = useState(false);
+  const ranked = [...MM_GEN_MODELS].sort((a, b) => b.calls - a.calls);
+  const total = ranked.reduce((s, m) => s + m.calls, 0);
+  const max = ranked[0].calls;
+  const top = ranked.slice(0, 6);
+  const modalityCell = (m) => (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: MM_MODALITY_META[m].color, display: 'inline-block' }} />
+      {MM_MODALITY_META[m].label}
+    </span>
+  );
+  const extra = view === 'rank' ? (
+    <span onClick={() => setOpen(true)} title="展开全量" style={{ cursor: 'pointer', color: COLORS.textLight, fontSize: '15px', display: 'inline-flex' }}>
+      <FullscreenOutlined />
+    </span>
+  ) : null;
+  const control = (
+    <Seg value={view} onChange={setView}
+      options={[{ value: 'trend', label: '按模态趋势' }, { value: 'rank', label: '模型排行' }]} />
+  );
   return (
-    <div className="dashboard-grid">
-      {/* 1. 多模态调用量 —— 按模态归一化为「次」，跨模态可堆叠 */}
-      <XCard title="多模态调用量" value="12,480 次"
-        tip="按模态 (图像/音频/视频) 堆叠统计的多模态请求次数,跨模态归一化为「次」。"
-        models="多模态模型:图像 (文生图/图生图)、音频 (TTS/STT)、视频 (文生视频/视频理解)">
+    <XCard title="多模态调用量" value={`${total.toLocaleString()} 次`}
+      tip="多模态请求总调用次数，跨模态(图像/音频/视频)归一化为「次」。可在按模态趋势与跨模态模型调用排行之间切换，排行展开看全量。"
+      models="多模态模型：图像(文生图/图生图)、音频(TTS/STT)、视频(文生视频/视频理解)"
+      extra={extra} control={control}>
+      {view === 'trend' ? (
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -760,10 +897,86 @@ const MultimodalView = () => {
             <Bar dataKey="mmVideoReq" name="视频" stackId="a" fill={MODAL_COLORS.video} maxBarSize={30} radius={[2, 2, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
-      </XCard>
+      ) : (
+        <div style={{ height: '100%', overflowY: 'auto', paddingTop: '6px' }}>
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '10px' }}>
+            {Object.entries(MM_MODALITY_META).map(([k, meta]) => (
+              <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#64748b' }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: meta.color }} />{meta.label}
+              </span>
+            ))}
+          </div>
+          {top.map(m => (
+            <div key={m.name} style={{ marginBottom: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '5px' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: MM_MODALITY_META[m.modality].color, display: 'inline-block' }} />
+                  <span style={{ fontFamily: 'monospace', color: COLORS.blue }}>{m.name}</span>
+                </span>
+                <span style={{ color: COLORS.textMain, fontWeight: 600 }}>{m.calls.toLocaleString()} 次</span>
+              </div>
+              <div style={{ height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ width: `${(m.calls / max * 100).toFixed(0)}%`, height: '100%', background: MM_MODALITY_META[m.modality].color, borderRadius: '4px' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <Modal open={open} onCancel={() => setOpen(false)} footer={null} width={720} title="多模态模型调用排行 · 全量">
+        <Table columns={[
+          { title: '排名', key: 'r', width: 56, render: (_t, _r, i) => <span style={{ fontWeight: 600, color: i < 5 ? COLORS.orange : COLORS.textMain }}>{i + 1}</span> },
+          { title: '模型', dataIndex: 'name', key: 'name', render: e => <span style={{ fontFamily: 'monospace', color: COLORS.blue }}>{e}</span> },
+          { title: '模态', dataIndex: 'modality', key: 'modality', render: m => modalityCell(m) },
+          { title: '调用量', dataIndex: 'calls', key: 'calls', align: 'right', sorter: (a, b) => a.calls - b.calls, defaultSortOrder: 'descend', render: e => e.toLocaleString() },
+          { title: '占比', key: 'pct', align: 'right', render: (_t, r) => (r.calls / total * 100).toFixed(1) + '%' },
+        ]} dataSource={ranked} pagination={false} rowKey="name" size="small" scroll={{ y: 360 }} />
+      </Modal>
+    </XCard>
+  );
+};
 
+// 整合卡片②：平均生成时长 —— 图像/视频/音频 标签切换(默认视频) + 总览/按模型(useBreakdown) + 分位
+const GenTimeCard = () => {
+  const [modality, setModality] = useState('video');
+  const [p, setP] = useState('p50');
+  const meta = MM_MODALITY_META[modality];
+  const prefix = { image: 'mmImage', audio: 'mmAudio', video: 'mmVideo' }[modality];
+  const dk = `${prefix}${p.toUpperCase()}`;
+  const modalityTabs = (
+    <Seg value={modality} onChange={setModality}
+      options={['image', 'video', 'audio'].map(k => ({ value: k, label: MM_MODALITY_META[k].label, dot: MM_MODALITY_META[k].color }))} />
+  );
+  const pSel = (
+    <select value={p} onChange={e => setP(e.target.value)} style={{ padding: '3px 6px', borderRadius: '4px', border: `1px solid ${COLORS.gray}`, fontSize: '12px' }}>
+      <option value="p50">P50</option>
+      <option value="p95">P95</option>
+      <option value="p99">P99</option>
+    </select>
+  );
+  const mb = useBreakdown({
+    totalData: dailyData, totalKey: dk, totalName: `${meta.label} ${p.toUpperCase()}`, totalColor: meta.color,
+    byModel: genByModel[modality][p], agg: 'avg', unit: ' s',
+    modalTitle: `${meta.label}生成时长 · 按模型明细`, valueFmt: v => v.toFixed(1) + ' s',
+    controlExtra: <>{modalityTabs}{pSel}</>,
+  });
+  return (
+    <XCard title="平均生成时长" value={`${meta.label} ${p.toUpperCase()}: ${dailyData.at(-1)[dk]}s`}
+      tip="多模态生成任务从提交到产物完成的处理时长分位数(P50/P95/P99)。按模态(图像/音频/视频)切换，默认视频；可在总览与按模型之间切换。"
+      models="多模态生成模型：图像、音频、视频"
+      extra={mb.extra} control={mb.control}>
+      {mb.chart}
+      {mb.modal}
+    </XCard>
+  );
+};
 
-      {/* 1.5 生成类型分布 */}
+const MultimodalView = () => {
+  return (
+    <div className="dashboard-grid">
+      {/* 1. 多模态调用量 + 模型调用排行 (整合) */}
+      <MmCallCard />
+
+      {/* 2. 生成类型分布 */}
       <XCard title="生成类型分布"
         tip="按生成媒体类型 (图片/视频/音频) 统计的产物数量占比。"
         models="多模态生成模型:图像、视频、音频">
@@ -791,8 +1004,8 @@ const MultimodalView = () => {
         </div>
       </XCard>
 
-      {/* 2. 多模态成本 —— 按模态归因，视频单价高，重点观察 */}
-      <XCard title="多模态成本" value="¥1,860.00" subtitle="按模态归因 · 视频单价高需重点观察"
+      {/* 3. 多模态成本 */}
+      <XCard title="多模态成本" value="¥1,860.00"
         tip="按模态 (图像/音频/视频) 归因的消费金额,视频单价高需重点观察。"
         models="多模态模型:图像、音频、视频">
         <ResponsiveContainer width="100%" height="100%">
@@ -809,184 +1022,312 @@ const MultimodalView = () => {
         </ResponsiveContainer>
       </XCard>
 
-      {/* 3. 异步任务状态/成功率 —— 本模块核心，LLM 路由分析没有的维度 */}
-
-
-      {/* 4. 平均处理时长 —— 复用延迟分析的分位数选择器 */}
-      <XCard title="平均处理时长" value={`${procPercentile.toUpperCase()}: ${dailyData.at(-1)[procKeyMap[procPercentile]]}s`}
-        tip="多模态异步任务从提交到完成的处理时长分位数 (P50/P95/P99),按模态分别展示。"
-        models="多模态模型:图像、音频、视频">
-        <div style={{ position: 'absolute', top: '16px', right: '24px', zIndex: 10 }}>
-          <select value={procPercentile} onChange={e => setProcPercentile(e.target.value)} style={{ padding: '4px 8px', borderRadius: '4px', border: `1px solid ${COLORS.gray}` }}>
-            <option value="p50">P50</option>
-            <option value="p95">P95</option>
-            <option value="p99">P99</option>
-          </select>
-        </div>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={dailyData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} />
-            <Tooltip content={<CustomTooltip unit=" s" />} cursor={CROSSHAIR} />
-                        <Line type="monotone" dataKey={`mmImage${procPercentile.toUpperCase()}`} name={`图像 ${procPercentile.toUpperCase()}`} stroke={MODAL_COLORS.image} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
-            <Line type="monotone" dataKey={`mmAudio${procPercentile.toUpperCase()}`} name={`音频 ${procPercentile.toUpperCase()}`} stroke={MODAL_COLORS.audio} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
-            <Line type="monotone" dataKey={`mmVideo${procPercentile.toUpperCase()}`} name={`视频 ${procPercentile.toUpperCase()}`} stroke={MODAL_COLORS.video} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
-          </LineChart>
-        </ResponsiveContainer>
-      </XCard>
-
-
+      {/* 4. 平均生成时长 (整合：模态标签 + 总览/按模型) */}
+      <GenTimeCard />
     </div>
   );
 };
 
-// --- 6. Desk Usage Analytics (MVP: 5 核心指标) ---
-const DeskView = () => {
-  const STATUS_META = {
-    running: { label: '运行中', color: 'green' },
-    stopped: { label: '已关机', color: 'orange' },
-    released: { label: '已释放', color: 'default' },
+// =====================================================================
+// 按模型维度的呈现 (方案 B, 分层) —— 图内「总览 ⇄ 按模型」切换 + 「展开详情」全量弹窗
+//   · 切换 = 轻量快览：聚合 ⇄ 细分；高基数自动收敛为 Top5 + 其他
+//   · 展开 = 深查：弹窗内放 Top5 大图 + 全量模型可排序表
+// =====================================================================
+const MODEL_DATES = ['05月03日', '05月08日', '05月13日', '05月18日', '05月23日', '05月28日', '06月01日'];
+
+// 全量模型池 (12 个, 演示高基数下的 Top N + 其他 收敛)
+const ALL_MODELS = [
+  { name: 'gpt-4o', hits: 420, savings: 90, errorRate: 4.2, ttft: 340, lat: 1820, calls: 142800 },
+  { name: 'gpt-4o-mini', hits: 520, savings: 60, errorRate: 2.1, ttft: 180, lat: 900, calls: 188400 },
+  { name: 'claude-3-5-sonnet', hits: 300, savings: 70, errorRate: 3.2, ttft: 380, lat: 1610, calls: 98200 },
+  { name: 'claude-3-haiku', hits: 380, savings: 45, errorRate: 2.8, ttft: 160, lat: 850, calls: 76500 },
+  { name: 'gemini-1.5-pro', hits: 175, savings: 40, errorRate: 5.4, ttft: 420, lat: 2240, calls: 64100 },
+  { name: 'gemini-1.5-flash', hits: 300, savings: 35, errorRate: 3.9, ttft: 150, lat: 780, calls: 71200 },
+  { name: 'qwen-max', hits: 240, savings: 55, errorRate: 3.5, ttft: 300, lat: 1490, calls: 52300 },
+  { name: 'qwen-plus', hits: 160, savings: 30, errorRate: 3.1, ttft: 240, lat: 1200, calls: 41800 },
+  { name: 'deepseek-v3', hits: 210, savings: 50, errorRate: 4.6, ttft: 260, lat: 1700, calls: 48600 },
+  { name: 'llama-3.1-70b', hits: 90, savings: 20, errorRate: 9.0, ttft: 210, lat: 980, calls: 31000 },
+  { name: 'mistral-large', hits: 120, savings: 25, errorRate: 6.2, ttft: 300, lat: 1600, calls: 28400 },
+  { name: 'glm-4', hits: 80, savings: 15, errorRate: 5.0, ttft: 280, lat: 1400, calls: 22700 },
+];
+
+// 生成某指标的逐日 by-model 序列 (每行: {date, '<model>': v, ...})
+const buildMetricSeries = (metric, jitter = 0.3, decimals = 0) =>
+  MODEL_DATES.map(date => {
+    const row = { date };
+    ALL_MODELS.forEach(m => {
+      const v = m[metric] * (1 - jitter / 2 + Math.random() * jitter);
+      row[m.name] = decimals ? +v.toFixed(decimals) : Math.round(v);
+    });
+    return row;
+  });
+
+const cacheHitsByModel = buildMetricSeries('hits');
+const cacheSavingsByModel = buildMetricSeries('savings');
+const errorRateByModel = buildMetricSeries('errorRate', 0.5, 1);
+const ttftByModel = buildMetricSeries('ttft');
+
+// 延迟按模型 × 分位 (p95 为基准，p50≈0.6×、p99≈1.6×)
+const buildLatSeries = (factor) => MODEL_DATES.map(date => {
+  const row = { date };
+  ALL_MODELS.forEach(m => { row[m.name] = Math.round(m.lat * factor * (0.85 + Math.random() * 0.3)); });
+  return row;
+});
+const latByModel = { p50: buildLatSeries(0.6), p95: buildLatSeries(1), p99: buildLatSeries(1.6) };
+
+// 多模态生成模型池 (按模态)，用于生成时长的「按模型」细分；与文本模型同属全局 Model 筛选
+const GEN_MODELS = {
+  image: [
+    { name: 'flux-1.1-pro', t: 6, c: 1360 }, { name: 'sd-3.5-large', t: 8, c: 1140 }, { name: 'dall-e-3', t: 12, c: 800 },
+    { name: 'flux-schnell', t: 3, c: 1740 }, { name: 'ideogram-v2', t: 9, c: 660 }, { name: 'recraft-v3', t: 7, c: 540 },
+  ],
+  audio: [
+    { name: 'tts-1', t: 4, c: 1500 }, { name: 'tts-1-hd', t: 6, c: 900 }, { name: 'whisper-large-v3', t: 5, c: 1140 },
+    { name: 'elevenlabs-v2', t: 7, c: 440 }, { name: 'azure-tts', t: 5, c: 700 },
+  ],
+  video: [
+    { name: 'sora', t: 38, c: 140 }, { name: 'kling-1.5', t: 30, c: 290 }, { name: 'runway-gen3', t: 26, c: 330 },
+    { name: 'luma-dream', t: 22, c: 240 }, { name: 'minimax-video', t: 28, c: 200 }, { name: 'pika-1.5', t: 18, c: 360 },
+  ],
+};
+const buildGenSeries = (models, factor) => MODEL_DATES.map(date => {
+  const row = { date };
+  models.forEach(m => { row[m.name] = +(m.t * factor * (0.85 + Math.random() * 0.3)).toFixed(1); });
+  return row;
+});
+const buildGenByModel = (models) => ({ p50: buildGenSeries(models, 0.7), p95: buildGenSeries(models, 1), p99: buildGenSeries(models, 1.5) });
+const genByModel = { image: buildGenByModel(GEN_MODELS.image), audio: buildGenByModel(GEN_MODELS.audio), video: buildGenByModel(GEN_MODELS.video) };
+const ALL_GEN_MODEL_NAMES = [...GEN_MODELS.image, ...GEN_MODELS.audio, ...GEN_MODELS.video].map(m => m.name);
+
+// 多模态生成模型：模态映射 + 窗口内累计调用量（用于「多模态模型调用排行」）
+const MM_MODALITY_META = {
+  image: { label: '图像', color: MODAL_COLORS.image },
+  audio: { label: '音频', color: MODAL_COLORS.audio },
+  video: { label: '视频', color: MODAL_COLORS.video },
+};
+const MM_GEN_MODELS = ['image', 'audio', 'video'].flatMap(
+  mod => GEN_MODELS[mod].map(m => ({ name: m.name, modality: mod, calls: m.c }))
+);
+
+const LINE_PALETTE = [COLORS.blue, COLORS.purple, COLORS.cyan, COLORS.orange, COLORS.green, COLORS.red];
+
+// 取 Top N 模型 (按窗口内累计排序)，其余聚合为「其他」一条；avg 指标的「其他」取均值
+const topNWithOther = (series, n = 5, agg = 'sum') => {
+  const models = Object.keys(series[0]).filter(k => k !== 'date');
+  const totals = models.map(m => [m, series.reduce((s, r) => s + r[m], 0)]).sort((a, b) => b[1] - a[1]);
+  const top = totals.slice(0, n).map(t => t[0]);
+  const rest = totals.slice(n).map(t => t[0]);
+  const data = series.map(r => {
+    const row = { date: r.date };
+    top.forEach(m => { row[m] = r[m]; });
+    if (rest.length) {
+      const s = rest.reduce((a, m) => a + r[m], 0);
+      row['其他'] = +(agg === 'avg' ? s / rest.length : s).toFixed(1);
+    }
+    return row;
+  });
+  return { data, keys: rest.length ? [...top, '其他'] : top };
+};
+
+const renderKeyedLines = (keys) => keys.map((k, i) => (
+  <Line key={k} type="monotone" dataKey={k} name={k}
+    stroke={k === '其他' ? COLORS.textLight : LINE_PALETTE[i % LINE_PALETTE.length]}
+    strokeWidth={1.8} dot={false} activeDot={ACTIVE_DOT} />
+));
+
+// 各模型的缓存命中率 (mock 数据)
+const MODEL_CACHE_HIT_RATES = {
+  'gpt-4o-mini': '74.5%',
+  'gpt-4o': '68.2%',
+  'claude-3-haiku': '65.4%',
+  'claude-3-5-sonnet': '70.1%',
+  'gemini-1.5-flash': '62.8%',
+  'qwen-max': '59.2%',
+  'gemini-1.5-pro': '58.5%',
+  'qwen-plus': '55.1%',
+  'deepseek-v3': '66.3%',
+  'llama-3.1-70b': '52.4%',
+  'mistral-large': '54.2%',
+  'glm-4': '48.9%',
+};
+
+// 指标卡片图表逻辑(hook)：返回 标题行展开图标 / 数值行切换控件 / 图表 / 弹窗
+// 总览 ⇄ 按模型(Top5+其他) 切换 + 展开详情(全量弹窗) + 按筛选模型联动
+const useBreakdown = ({ totalData, totalKey, totalName, totalColor, byModel, agg = 'sum', unit, yTickFormatter, modalTitle, valueFmt, controlExtra, pctColumnTitle = '占比', pctColumnRender }) => {
+  const activeModels = useContext(FilterContext);
+  const [mode, setMode] = useState('total');
+  const [open, setOpen] = useState(false);
+
+  const allModels = Object.keys(byModel[0]).filter(k => k !== 'date');
+  const scoped = activeModels.filter(m => allModels.includes(m)); // 生效的模型筛选
+  const singleModel = scoped.length === 1;
+  const effMode = singleModel ? 'total' : mode; // 单模型筛选时"按模型"无意义，强制总览
+
+  // 受筛选影响的"总览"数据：未筛选→全量聚合(传入)；筛选→由选中模型按 agg 再聚合
+  const scopedTotalData = scoped.length === 0 ? totalData : byModel.map(r => {
+    const s = scoped.reduce((a, m) => a + r[m], 0);
+    return { date: r.date, _v: +(agg === 'avg' ? s / scoped.length : s).toFixed(1) };
+  });
+  const scopedTotalKey = scoped.length === 0 ? totalKey : '_v';
+  const scopedTotalName = scoped.length === 0 ? totalName : (singleModel ? scoped[0] : `已选 ${scoped.length} 个模型合计`);
+
+  // "按模型"数据：未筛选→Top5 + 其他；筛选→只画选中的模型
+  const modelView = scoped.length === 0
+    ? topNWithOther(byModel, 5, agg)
+    : { data: byModel.map(r => { const row = { date: r.date }; scoped.forEach(m => { row[m] = r[m]; }); return row; }), keys: scoped };
+
+  // 详情表：筛选时只列选中模型，否则全量
+  const tableModels = scoped.length === 0 ? allModels : scoped;
+  const aggVal = (m) => {
+    const s = byModel.reduce((acc, r) => acc + r[m], 0);
+    return agg === 'avg' ? s / byModel.length : s;
   };
-  const deskColumns = [
-    { title: '桌面 ID', dataIndex: 'id', key: 'id', render: t => <span style={{ color: COLORS.blue, fontWeight: 500 }}>{t}</span> },
-    { title: '使用者', dataIndex: 'user', key: 'user' },
-    { title: '规格', dataIndex: 'spec', key: 'spec', render: t => <Tag color={t === 'GPU 型' ? 'purple' : t === '高内存型' ? 'cyan' : 'blue'}>{t}</Tag> },
-    { title: '使用时长', dataIndex: 'hours', key: 'hours' },
-    { title: '利用率', dataIndex: 'util', key: 'util', render: t => <span style={{ color: parseInt(t) < 20 ? COLORS.red : COLORS.textMain, fontWeight: parseInt(t) < 20 ? 600 : 400 }}>{t}</span> },
-    { title: '状态', dataIndex: 'status', key: 'status', render: t => <Tag color={STATUS_META[t]?.color}>{STATUS_META[t]?.label || t}</Tag> },
+  const tableRows = tableModels.map(m => ({ key: m, model: m, value: aggVal(m) })).sort((a, b) => b.value - a.value);
+  const grandTotal = tableRows.reduce((s, r) => s + r.value, 0);
+  const tableColumns = [
+    { title: '排名', key: 'rank', width: 56, render: (_t, _r, i) => <span style={{ fontWeight: 600, color: i < 5 ? COLORS.orange : COLORS.textMain }}>{i + 1}</span> },
+    { title: '模型', dataIndex: 'model', key: 'model', render: t => <span style={{ fontFamily: 'monospace', color: COLORS.blue }}>{t}</span> },
+    { title: agg === 'avg' ? '平均值' : '累计值', dataIndex: 'value', key: 'value', align: 'right', sorter: (a, b) => a.value - b.value, defaultSortOrder: 'descend', render: v => valueFmt(v) },
+    ...(agg === 'sum' ? [{ title: pctColumnTitle, key: 'pct', align: 'right', render: pctColumnRender || ((_t, r) => ((r.value / grandTotal) * 100).toFixed(1) + '%') }] : []),
   ];
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <div className="dashboard-grid">
-        {/* 1. Desk 总成本 (按规格归因) —— hero */}
-        <XCard title="Desk 总成本 (按规格)" value="¥8,420.00" subtitle="按计费规格 (标准/GPU/高内存) 归因"
-          tip="云电脑(Desk)按计费规格(标准型/GPU型/高内存型)堆叠归因的消费金额。"
-          models="不涉及 AI 模型(云电脑资源计费)">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} tickFormatter={v => '¥' + v} />
-              <Tooltip content={<CustomTooltip unit=" 元" />} cursor={{ fill: '#f1f5f9' }} />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
-              <Bar dataKey="deskCostStandard" name="标准型" stackId="d" fill={COLORS.blue} maxBarSize={30} />
-              <Bar dataKey="deskCostGpu" name="GPU 型" stackId="d" fill={COLORS.purple} maxBarSize={30} />
-              <Bar dataKey="deskCostHighmem" name="高内存型" stackId="d" fill={COLORS.cyan} maxBarSize={30} radius={[2, 2, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </XCard>
+  const extra = (
+    <span onClick={() => setOpen(true)} title="展开详情"
+      style={{ cursor: 'pointer', color: COLORS.textLight, fontSize: '15px', lineHeight: 1, display: 'inline-flex' }}>
+      <FullscreenOutlined />
+    </span>
+  );
 
-        {/* 2. 资源利用率 —— 多维资源利用率 */}
-<XCard title="资源利用率" subtitle="CPU / 内存 / 磁盘 / GPU 利用率（%）"
-  tip="云电脑实例的 CPU / 内存 / 磁盘 / GPU 平均利用率,持续偏低说明资源闲置。"
-  models="不涉及 AI 模型(云电脑资源监控)">
-  <ResponsiveContainer width="100%" height="100%">
-    <LineChart data={dailyData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
-      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-      <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} domain={[0, 100]} />
-      <Tooltip content={<CustomTooltip unit="%" />} cursor={CROSSHAIR} />
-      <Line type="monotone" dataKey="deskCpuUtil" name="CPU 利用率" stroke={COLORS.blue} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
-      <Line type="monotone" dataKey="deskMemUtil" name="内存利用率" stroke={COLORS.purple} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
-      <Line type="monotone" dataKey="deskDiskUtil" name="磁盘利用率" stroke={COLORS.cyan} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
-      <Line type="monotone" dataKey="deskGpuUtil" name="GPU 利用率" stroke={COLORS.red} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
-    </LineChart>
-  </ResponsiveContainer>
-</XCard>
-
-        {/* 3. 桌面状态分布 —— 对接系统真实状态; 已关机=占用未释放, 省钱抓手 */}
-        <XCard title="桌面状态分布" value="" subtitle="按系统状态 (运行中/已关机) 统计, 不依赖开通来源"
-          tip="按云电脑系统真实状态(运行中/已关机)统计的桌面台数,已关机但未释放仍可能计存储费。"
-          models="不涉及 AI 模型(云电脑资源状态)">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} />
-              <Tooltip content={<CustomTooltip unit=" 台" />} cursor={{ fill: '#f1f5f9' }} />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
-              <Bar dataKey="deskRunning" name="运行中" stackId="s" fill={COLORS.green} maxBarSize={30} />
-              <Bar dataKey="deskStopped" name="已关机" stackId="s" fill={COLORS.orange} maxBarSize={30} radius={[2, 2, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </XCard>
-
-        {/* 4. 连接质量 RTT —— 体验金标, >200ms 明显卡顿 */}
-        <XCard title="连接质量 (RTT)" value="68 ms" subtitle="连接往返延迟 · >200ms 体验明显下降"
-          tip="云电脑串流连接的往返延迟 (RTT) P50/P95,超过 200ms 操作明显卡顿。"
-          models="不涉及 AI 模型(云电脑串流网络)">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} />
-              <Tooltip content={<CustomTooltip unit=" ms" />} cursor={CROSSHAIR} />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
-              <Line type="monotone" dataKey="deskRttP50" name="P50" stroke={COLORS.green} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
-              <Line type="monotone" dataKey="deskRttP95" name="P95" stroke={COLORS.orange} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
-            </LineChart>
-          </ResponsiveContainer>
-        </XCard>
+  const control = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      {controlExtra}
+      {/* 图标式分段切换：折线=总览，分支=按模型，hover 浮显文案 */}
+      <div style={{ display: 'flex', gap: '4px', background: 'transparent' }}>
+        {[['total', '总览', <LineChartOutlined key="i" style={{ fontSize: '15px' }} />], ['model', '按模型', <PartitionOutlined key="i" style={{ fontSize: '15px' }} />]].map(([k, lbl, icon]) => {
+          const disabled = singleModel && k === 'model';
+          const isActive = effMode === k;
+          return (
+            <ATooltip key={k} title={disabled ? '已按单个模型筛选，无需再拆分' : lbl} placement="top">
+              <span
+                onClick={() => { if (!disabled) setMode(k); }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '5px',
+                  borderRadius: '4px',
+                  cursor: disabled ? 'not-allowed' : 'pointer',
+                  color: disabled ? '#cbd5e1' : (isActive ? COLORS.blue : COLORS.textMuted),
+                  background: isActive ? '#f1f5f9' : 'transparent',
+                  transition: 'all 0.2s'
+                }}>
+                {icon}
+              </span>
+            </ATooltip>
+          );
+        })}
       </div>
-
-      {/* 5. 使用明细 (找闲置桌面与重度用户) */}
-      <Card title="桌面使用明细" className="portkey-card" style={{ height: 'auto', padding: 0 }}>
-        <div className="card-body" style={{ padding: '12px 24px 24px 24px' }}>
-          <Table columns={deskColumns} dataSource={deskDetailData} pagination={false} rowKey="id" size="small" />
-        </div>
-      </Card>
     </div>
   );
+
+  const chart = (
+    <>
+      {scoped.length > 0 && (
+        <div style={{ position: 'absolute', top: '6px', left: '24px', fontSize: '12px', color: COLORS.textLight, zIndex: 5 }}>
+          范围: <b style={{ color: COLORS.textMain }}>{singleModel ? scoped[0] : scoped.length + ' 个模型'}</b>
+        </div>
+      )}
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={effMode === 'model' ? modelView.data : scopedTotalData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+          <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
+          <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} tickFormatter={yTickFormatter} />
+          <Tooltip content={<CustomTooltip unit={unit} />} cursor={CROSSHAIR} />
+          {effMode === 'model' && <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />}
+          {effMode === 'model'
+            ? renderKeyedLines(modelView.keys)
+            : <Line type="monotone" dataKey={scopedTotalKey} name={scopedTotalName} stroke={totalColor} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />}
+        </LineChart>
+      </ResponsiveContainer>
+    </>
+  );
+
+  const modal = (
+    <Modal open={open} onCancel={() => setOpen(false)} footer={null} width={920} title={modalTitle}>
+      <div style={{ fontSize: '12px', color: COLORS.textLight, margin: '4px 0 12px' }}>
+        {scoped.length === 0
+          ? <>图表为 Top 5 模型 + 其他聚合；下表为全部 {tableRows.length} 个模型（{agg === 'avg' ? '窗口内平均' : '窗口内累计'}，可点表头排序）。</>
+          : <>已按筛选锁定 {tableRows.length} 个模型（{agg === 'avg' ? '窗口内平均' : '窗口内累计'}）。</>}
+      </div>
+      <div style={{ height: '280px', marginBottom: '16px' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={modelView.data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
+            <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} tickFormatter={yTickFormatter} />
+            <Tooltip content={<CustomTooltip unit={unit} />} cursor={CROSSHAIR} />
+            <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+            {renderKeyedLines(modelView.keys)}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <Table columns={tableColumns} dataSource={tableRows} pagination={false} rowKey="key" size="small" scroll={{ y: 240 }} />
+    </Modal>
+  );
+
+  return { extra, control, chart, modal };
 };
 
 // --- MAIN APP COMPONENT ---
 // 时间筛选 -> 卡片副标题文案 (mock: 真实环境按所选窗口的起止日期动态生成)
 const RANGE_LABELS = {
-  '15m': '数据来自最近15分钟',
   '1h': '数据来自最近1小时',
   '24h': '数据来自最近24小时',
-  'yesterday': '数据来自昨天',
   '3d': '数据来自最近3天',
   '7d': '数据来自 05月26日 至 06月01日',
-  '14d': '数据来自 05月19日 至 06月01日',
   '30d': '数据来自 05月03日 至 06月01日',
-  '90d': '数据来自 03月03日 至 06月01日',
   'custom': '数据来自自定义范围',
 };
 
 // 全局筛选维度 (参考 Portkey, 新增 Resource)。可叠加, 一次加一个
 const FILTER_DIMENSIONS = [
-  { key: 'resource', label: 'Resource' },
   { key: 'model', label: 'Model' },
-  { key: 'cost', label: 'Cost' },
-  { key: 'tokens', label: 'Tokens' },
-  { key: 'cache', label: 'Cache' },
-  { key: 'status', label: 'Status' },
   { key: 'user', label: 'User' },
   { key: 'apiKey', label: 'API Key' },
   { key: 'provider', label: 'Provider' },
-  { key: 'traceId', label: 'Trace Id' },
 ];
 
-// 可叠加筛选条件：选维度 -> 填值 -> 加为 chip，可逐个移除
-const FilterBar = () => {
-  const [filters, setFilters] = useState([]);
+// 各维度的可选值：预设项走「可搜索下拉」，取代原来的手动输入 (方案 A)
+const FILTER_VALUE_OPTIONS = {
+  model: [...ALL_MODELS.map(m => m.name), ...ALL_GEN_MODEL_NAMES],
+  provider: ['OpenAI', 'Anthropic', 'Google', '通义千问', 'Meta (Groq)'],
+  apiKey: ['sk-...a1b2', 'sk-...c3d4', 'sk-...e5f6', 'sk-...g7h8', 'sk-...i9j0'],
+  user: ['usr_rd_01', 'usr_rd_07', 'usr_mkt_05', 'usr_ops_12', 'usr_hr_02'],
+  status: ['200 成功', '429 限流', '500 服务端', '401 鉴权'],
+  cache: ['命中', '未命中'],
+  resource: ['Desk · GPU 型', 'Desk · 标准型', 'Desk · 高内存型'],
+};
+
+// 可叠加筛选：选维度 -> 选/填值 -> 加为 chip。预设维度走可搜索下拉，开放维度回退文本输入
+const FilterBar = ({ filters, setFilters }) => {
   const [draftDim, setDraftDim] = useState('');
   const [draftVal, setDraftVal] = useState('');
 
-  const addFilter = () => {
-    if (!draftDim || !draftVal.trim()) return;
+  const commit = (val) => {
+    const v = (val ?? draftVal).toString().trim();
+    if (!draftDim || !v) return;
     const label = FILTER_DIMENSIONS.find(d => d.key === draftDim)?.label || draftDim;
-    setFilters([...filters, { id: Date.now(), key: draftDim, label, value: draftVal.trim() }]);
+    setFilters(prev => [...prev, { id: Date.now(), key: draftDim, label, value: v }]);
     setDraftDim('');
     setDraftVal('');
   };
   const removeFilter = (id) => setFilters(filters.filter(f => f.id !== id));
 
-  // 已选维度不再重复出现在下拉里
-  const available = FILTER_DIMENSIONS.filter(d => !filters.some(f => f.key === d.key));
+  // 已选维度不再重复出现在下拉里；model 允许多选 (可叠加多个模型做对比)
+  const available = FILTER_DIMENSIONS.filter(d => d.key === 'model' || !filters.some(f => f.key === d.key));
+  const dimLabel = FILTER_DIMENSIONS.find(d => d.key === draftDim)?.label;
+  const usedVals = filters.filter(f => f.key === draftDim).map(f => f.value);
+  const presetVals = FILTER_VALUE_OPTIONS[draftDim];
+  const valueOptions = presetVals ? presetVals.filter(v => !usedVals.includes(v)) : undefined;
 
   return (
     <div className="search-input-wrapper" style={{ flexWrap: 'wrap', gap: '6px' }}>
@@ -997,30 +1338,86 @@ const FilterBar = () => {
           <span onClick={() => removeFilter(f.id)} style={{ cursor: 'pointer', color: '#94a3b8', marginLeft: '2px', fontWeight: 600 }}>×</span>
         </span>
       ))}
-      <select value={draftDim} onChange={e => setDraftDim(e.target.value)} style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '14px', color: draftDim ? '#1e293b' : '#94a3b8' }}>
-        <option value="">+ 添加筛选</option>
-        {available.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
-      </select>
-      {draftDim && (
+      {/* 1) 选维度 */}
+      <Select
+        size="small"
+        variant="borderless"
+        placeholder="+ 添加筛选"
+        value={draftDim || undefined}
+        onChange={(v) => { setDraftDim(v); setDraftVal(''); }}
+        options={available.map(d => ({ value: d.key, label: d.label }))}
+        style={{ minWidth: 104 }}
+        popupMatchSelectWidth={false}
+      />
+      {/* 2) 选值：预设维度走可搜索下拉；开放维度回退文本输入 */}
+      {draftDim && (valueOptions ? (
+        <Select
+          size="small"
+          showSearch
+          autoFocus
+          defaultOpen
+          placeholder={`选择 ${dimLabel}`}
+          options={valueOptions.map(v => ({ value: v, label: v }))}
+          onChange={(v) => commit(v)}
+          style={{ minWidth: 180 }}
+          popupMatchSelectWidth={false}
+          filterOption={(input, opt) => opt.label.toLowerCase().includes(input.toLowerCase())}
+        />
+      ) : (
         <input
           type="text"
           autoFocus
           value={draftVal}
           onChange={e => setDraftVal(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && addFilter()}
-          onBlur={addFilter}
-          placeholder={`输入 ${FILTER_DIMENSIONS.find(d => d.key === draftDim)?.label} 值，回车添加`}
+          onKeyDown={e => e.key === 'Enter' && commit()}
+          onBlur={() => commit()}
+          placeholder={`输入 ${dimLabel} 值，回车添加`}
           style={{ border: 'none', outline: 'none', fontSize: '14px', color: '#1e293b', flex: 1, minWidth: '160px' }}
         />
-      )}
+      ))}
     </div>
   );
 };
 
 const App = () => {
-  const [activeTab, setActiveTab] = useState('cost');
-  const [timeRange, setTimeRange] = useState('30d');
-  const rangeLabel = RANGE_LABELS[timeRange] || '数据来自 05月03日 至 06月01日';
+  // tab / 时间窗口默认保留：从 localStorage 恢复，手动刷新不会重置选中的 tab
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('ob_activeTab') || 'overview');
+  const [timeRange, setTimeRange] = useState(() => localStorage.getItem('ob_timeRange') || '30d');
+  const [customRange, setCustomRange] = useState(() => {
+    const stored = localStorage.getItem('ob_customRange');
+    if (stored) {
+      try {
+        const arr = JSON.parse(stored);
+        return [dayjs(arr[0]), dayjs(arr[1])];
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+  const rangeLabel = timeRange === 'custom' && customRange && customRange[0] && customRange[1]
+    ? `数据来自 ${customRange[0].format('YYYY年MM月DD日 HH:mm')} 至 ${customRange[1].format('YYYY年MM月DD日 HH:mm')}`
+    : (RANGE_LABELS[timeRange] || '数据来自 05月03日 至 06月01日');
+
+  useEffect(() => { localStorage.setItem('ob_activeTab', activeTab); }, [activeTab]);
+  useEffect(() => { localStorage.setItem('ob_timeRange', timeRange); }, [timeRange]);
+  useEffect(() => {
+    if (customRange && customRange[0] && customRange[1]) {
+      localStorage.setItem('ob_customRange', JSON.stringify([
+        customRange[0].format('YYYY-MM-DD HH:mm'),
+        customRange[1].format('YYYY-MM-DD HH:mm')
+      ]));
+    } else {
+      localStorage.removeItem('ob_customRange');
+    }
+  }, [customRange]);
+
+  // 全局筛选条件 (lifted)；其中 model 维度驱动各指标卡的「按模型」联动
+  const [filters, setFilters] = useState([]);
+  const activeModels = [...new Set(filters.filter(f => f.key === 'model').map(f => f.value))];
+
+  // 组件更新提醒：有新版本时提示用户，且不会覆盖用户的自定义排版
+  const [showUpdateNotice, setShowUpdateNotice] = useState(true);
 
   const [collapsedGroups, setCollapsedGroups] = useState({
     apiRouter: false,
@@ -1053,12 +1450,12 @@ const App = () => {
 
   const renderActiveView = () => {
     switch (activeTab) {
+      case 'overview': return <OverviewView />;
       case 'cost': return <CostView />;
       case 'cache': return <CacheView />;
       case 'errors': return <ErrorsView />;
       case 'latency': return <LatencyView />;
       case 'multimodal': return <MultimodalView />;
-      case 'desk': return <DeskView />;
       default: return <CostView />;
     }
   };
@@ -1067,16 +1464,30 @@ const App = () => {
     if (activeMenu === 'dashboard') {
       return (
         <div className="analytics-container">
+          {showUpdateNotice && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '10px',
+              background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px',
+              padding: '10px 14px', marginBottom: '16px', fontSize: '13px', color: '#1e293b'
+            }}>
+              <InfoCircleOutlined style={{ color: '#1677ff' }} />
+              <span>仪表盘组件有新版本可用，更新不会改动您的自定义排版。</span>
+              <a href="#" onClick={(e) => { e.preventDefault(); setShowUpdateNotice(false); }}
+                style={{ marginLeft: 'auto', color: '#1677ff', fontWeight: 600 }}>查看更新</a>
+              <span onClick={() => setShowUpdateNotice(false)}
+                style={{ cursor: 'pointer', color: '#94a3b8', fontWeight: 600 }}>×</span>
+            </div>
+          )}
           <header className="page-header">
             <h1 className="page-title">仪表盘</h1>
 
             <div className="nav-tabs" style={{ overflowX: 'auto', paddingBottom: '2px' }}>
+              <div className={`nav-tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}><AppstoreOutlined /> 总览</div>
               <div className={`nav-tab ${activeTab === 'cost' ? 'active' : ''}`} onClick={() => setActiveTab('cost')}><CreditCardOutlined /> 消耗分析</div>
               <div className={`nav-tab ${activeTab === 'cache' ? 'active' : ''}`} onClick={() => setActiveTab('cache')}><ThunderboltOutlined /> 缓存命中</div>
               <div className={`nav-tab ${activeTab === 'errors' ? 'active' : ''}`} onClick={() => setActiveTab('errors')}><WarningOutlined /> 报错分析</div>
               <div className={`nav-tab ${activeTab === 'latency' ? 'active' : ''}`} onClick={() => setActiveTab('latency')}><DashboardOutlined /> 延迟分析</div>
               <div className={`nav-tab ${activeTab === 'multimodal' ? 'active' : ''}`} onClick={() => setActiveTab('multimodal')}><PlaySquareOutlined /> 多媒体模型</div>
-              <div className={`nav-tab ${activeTab === 'desk' ? 'active' : ''}`} onClick={() => setActiveTab('desk')}><DesktopOutlined /> Desk 使用</div>
             </div>
           </header>
 
@@ -1085,8 +1496,8 @@ const App = () => {
               <button style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', color: '#10b981' }}>
                 <SyncOutlined />
               </button>
-              <FilterBar />
-              <TimeFilter selected={timeRange} setSelected={setTimeRange} />
+              <FilterBar filters={filters} setFilters={setFilters} />
+              <TimeFilter selected={timeRange} setSelected={setTimeRange} customRange={customRange} setCustomRange={setCustomRange} />
             </div>
             {renderActiveView()}
           </main>
@@ -1105,6 +1516,7 @@ const App = () => {
 
   return (
     <TimeRangeContext.Provider value={rangeLabel}>
+      <FilterContext.Provider value={activeModels}>
       <div className="layout-shell">
         {/* Sidebar */}
         <aside className="layout-sidebar">
@@ -1233,6 +1645,7 @@ const App = () => {
           </div>
         </div>
       </div>
+      </FilterContext.Provider>
     </TimeRangeContext.Provider>
   );
 };

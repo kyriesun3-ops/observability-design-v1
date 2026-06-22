@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# local backups & design feedback (not part of prototype)
+*.bak.*
+修改意见/
