@@ -173,6 +173,7 @@ install_launchd_agent() {
     <string>com.observability.autosync</string>
     <key>ProgramArguments</key>
     <array>
+        <string>/bin/bash</string>
         <string>${PROJECT_DIR}/autosync.sh</string>
         <string>launchd</string>
     </array>
@@ -182,12 +183,6 @@ install_launchd_agent() {
     <true/>
     <key>KeepAlive</key>
     <true/>
-    <key>WatchPaths</key>
-    <array>
-        <string>${PROJECT_DIR}/src</string>
-        <string>${PROJECT_DIR}/docs</string>
-        <string>${PROJECT_DIR}/public</string>
-    </array>
     <key>StandardErrorPath</key>
     <string>${LOG_FILE}</string>
     <key>StandardOutPath</key>

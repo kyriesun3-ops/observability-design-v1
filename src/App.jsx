@@ -6,7 +6,7 @@ import {
 import { ThunderboltOutlined, WarningOutlined, SafetyCertificateOutlined,
   DashboardOutlined, PlaySquareOutlined, DesktopOutlined,
   SyncOutlined, SearchOutlined, CalendarOutlined, DownOutlined,
-  AppstoreOutlined, RightOutlined, FullscreenOutlined, LineChartOutlined, PartitionOutlined,
+  AppstoreOutlined, RightOutlined, FullscreenOutlined,
   CreditCardOutlined, UserOutlined, InfoCircleOutlined, GlobalOutlined } from '@ant-design/icons';
 import { Card, Table, Tag, Tooltip as ATooltip, Select, Modal, DatePicker } from 'antd';
 import dayjs from 'dayjs';
@@ -195,6 +195,10 @@ const PIE_COLORS = [COLORS.red, COLORS.orange, COLORS.blue, COLORS.purple, COLOR
 const CROSSHAIR = { stroke: '#cbd5e1', strokeWidth: 1 };
 const ACTIVE_DOT = { r: 4, strokeWidth: 2, stroke: '#fff' };
 
+// 坐标轴极简化：X 轴仅显示首尾日期刻度，中间不显示文本/数字，保持界面干爽；
+// Y 轴统一精简为 2 个刻度 (起点/终点)，与 X 轴保持一致的 UI 逻辑。
+const AXIS_END_TICKS = ['05月03日', '06月01日'];
+
 // 模态配色：图像/音频/视频 与任务状态统一色板
 const MODAL_COLORS = { image: COLORS.purple, audio: COLORS.cyan, video: COLORS.blue };
 
@@ -330,7 +334,7 @@ const TimeFilter = ({ selected, setSelected, customRange, setCustomRange }) => (
 
 // --- 0. Cost / Spend Analytics (消耗分析) ---
 // 账户额度 KPI 卡片 (模块级, 供消耗分析复用)
-const KpiCard = ({ label, value, icon, color, hint }) => {
+const KpiCard = ({ label, value, icon, color, hint, hideRange }) => {
   const rangeLabel = useContext(TimeRangeContext);
   return (
     <div className="portkey-card" style={{ height: 'auto', padding: '24px' }}>
@@ -345,90 +349,35 @@ const KpiCard = ({ label, value, icon, color, hint }) => {
         {icon}
       </div>
       <div style={{ fontSize: '28px', fontWeight: 600, color }}>{value}</div>
-      <div style={{ fontSize: '12px', color: COLORS.textLight, marginTop: '4px' }}>{rangeLabel}</div>
+      {/* 全局额度类指标不随时间筛选变化，隐藏时间区间副标题 */}
+      {!hideRange && <div style={{ fontSize: '12px', color: COLORS.textLight, marginTop: '4px' }}>{rangeLabel}</div>}
     </div>
   );
 };
 
-// --- 总览 (Overview) —— 关键指标一览 ---
-const RESOURCE_COST = [
-  { name: 'API 路由', value: 18600 },
-  { name: 'GPU 容器实例', value: 12400 },
-  { name: '云电脑 Desk', value: 8420 },
-  { name: '云硬盘', value: 3260 },
-];
-const RESOURCE_COLORS = { 'API 路由': COLORS.blue, 'GPU 容器实例': COLORS.purple, '云电脑 Desk': COLORS.cyan, '云硬盘': COLORS.orange };
-
-const OverviewView = () => {
-  const totalReq = dailyData.reduce((s, d) => s + d.requests, 0);
-  const totalCost = RESOURCE_COST.reduce((s, r) => s + r.value, 0);
-  const avgErr = (dailyData.reduce((s, d) => s + d.errorRate, 0) / dailyData.length).toFixed(1);
-  const avgP50 = Math.round(dailyData.reduce((s, d) => s + d.p50, 0) / dailyData.length);
-  const kpis = [
-    { label: '全平台总成本', value: fmtCNY(totalCost), color: COLORS.blue, hint: '四类资源(API 路由 / GPU 容器实例 / 云电脑 / 云硬盘)摊销成本合计，跟随时间筛选。' },
-    { label: '活跃用户', value: '1,284', color: COLORS.purple, hint: '所选时间窗口内发生过任意被计量行为的去重用户数。' },
-    { label: '总请求数', value: totalReq.toLocaleString(), color: COLORS.cyan, hint: '所选时间窗口内的总请求数。' },
-    { label: '缓存命中率', value: '65.4%', color: COLORS.green, hint: '命中缓存的请求数 / 总请求数。' },
-    { label: '报错率', value: avgErr + '%', color: COLORS.orange, hint: '错误请求数 / 总请求数。' },
-    { label: '平均延迟 P50', value: avgP50 + ' ms', color: COLORS.red, hint: '端到端延迟 P50（中位数）。' },
-  ];
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px' }}>
-        {kpis.map(k => <KpiCard key={k.label} label={k.label} value={k.value} color={k.color} hint={k.hint} />)}
-      </div>
-      <div className="dashboard-grid">
-        <XCard title="全平台成本趋势" value={fmtCNY(totalCost)}
-          tip="所选时间窗口内全平台每日摊销成本走势，跟随时间筛选。"
-          models="覆盖 API 路由 / GPU 容器实例 / 云电脑 / 云硬盘 四类资源">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="ovCost" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={COLORS.blue} stopOpacity={0.25} />
-                  <stop offset="100%" stopColor={COLORS.blue} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} tickFormatter={v => '¥' + v} />
-              <Tooltip content={<CustomTooltip unit=" 元" />} cursor={CROSSHAIR} />
-              <Area type="monotone" dataKey="spend" name="成本" stroke={COLORS.blue} strokeWidth={2} fill="url(#ovCost)" activeDot={ACTIVE_DOT} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </XCard>
-
-        <XCard title="成本构成 (按资源类型)" value={fmtCNY(totalCost)}
-          tip="四类资源的成本占比（环形图），跟随时间筛选。"
-          models="不涉及单一模型(资源维度聚合)">
-          <div style={{ display: 'flex', height: '100%' }}>
-            <div style={{ flex: 1, position: 'relative' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={RESOURCE_COST} cx="50%" cy="50%" innerRadius="55%" outerRadius="80%" paddingAngle={2} dataKey="value" nameKey="name" stroke="none">
-                    {RESOURCE_COST.map((e, i) => <Cell key={i} fill={RESOURCE_COLORS[e.name] || COLORS.gray} />)}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip unit=" 元" />} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div style={{ width: '150px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              {RESOURCE_COST.map(item => (
-                <div key={item.name} style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: RESOURCE_COLORS[item.name] || COLORS.gray }}></div>
-                  <div style={{ fontSize: '11px', color: COLORS.textMain }}>{item.name}: {((item.value / totalCost) * 100).toFixed(0)}%</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </XCard>
-      </div>
+// --- 总览 (Overview) ---
+// 总览 = 完整「消耗分析」Tab 的全部卡片 (原样粘贴) + 下方追加其他 Tab 的关键指标卡 (原样)
+const OverviewView = () => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    {/* 1) 消耗分析 Tab 的全部卡片，原样粘贴 */}
+    <CostView />
+    {/* 2) 其他 Tab 的关键指标卡，原样追加于下方 */}
+    <div className="dashboard-grid">
+      <CacheHitCard />
+      <CacheSavingsCard />
+      <RescuedCard />
+      <LatencyCard />
+      <TtftCard />
+      <GenTypeCard />
+      <MmCostCard />
+      <GenTimeCard />
     </div>
-  );
-};
+  </div>
+);
 
 
 const CostView = () => {
+  const rangeLabel = useContext(TimeRangeContext);
   const [provMetric, setProvMetric] = useState('cost'); // cost | tokens
   const [modelMetric, setModelMetric] = useState('cost');
   const [rankSort, setRankSort] = useState('cost'); // cost | apiKey | user
@@ -480,34 +429,56 @@ const CostView = () => {
     { title: '费用', dataIndex: 'cost', key: 'cost', render: t => <span style={{ color: COLORS.green, fontWeight: 600 }}>{fmtCNY(t)}</span> },
   ];
 
+  // deepseek API platform 风格：概览卡内嵌迷你趋势图所需的逐日序列 (图片/视频按 成功·失败 拆分)
+  const imgDaily = dailyData.map(d => ({ date: d.date, ok: d.mmImageReq, fail: Math.max(1, Math.round(d.mmImageReq * 0.02)) }));
+  const videoDaily = dailyData.map(d => ({ date: d.date, ok: d.mmVideoReq, fail: Math.max(1, Math.round(d.mmVideoReq * 0.05)) }));
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* 账户额度 KPI 行 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '24px' }}>
-        <KpiCard label="可用额度" value={fmtCNY(available)} color={COLORS.green}
+        <KpiCard label="可用额度" value={fmtCNY(available)} color={COLORS.green} hideRange
           icon={<CreditCardOutlined style={{ fontSize: '20px', color: COLORS.green }} />}
-          hint="可用额度 = 累计充值 + 赠金 − 累计消费，反映当前账户可继续消费的余额。" />
-        <KpiCard label="累计充值" value={fmtCNY(cumRecharge)} color={COLORS.textMain}
+          hint="可用额度 = 累计充值 + 赠金 − 累计消费，为账户实时余额，不随时间筛选变化。" />
+        <KpiCard label="累计充值" value={fmtCNY(cumRecharge)} color={COLORS.textMain} hideRange
           icon={<ThunderboltOutlined style={{ fontSize: '20px', color: COLORS.blue }} />}
-          hint="账户开通以来通过付费充值累计到账的金额，不含赠金。" />
-        <KpiCard label="累计消费" value={fmtCNY(cumConsume)} color={COLORS.textMain}
+          hint="账户开通以来通过付费充值累计到账的金额，不含赠金；为全局累计值。" />
+        <KpiCard label="累计消费" value={fmtCNY(cumConsume)} color={COLORS.textMain} hideRange
           icon={<DashboardOutlined style={{ fontSize: '20px', color: COLORS.purple }} />}
-          hint="账户开通以来在全部模型与服务上累计扣费的金额。" />
-        <KpiCard label="赠金" value={fmtCNY(bonus)} color={COLORS.orange}
+          hint="账户开通以来在全部模型与服务上累计扣费的金额；为全局累计值。" />
+        <KpiCard label="赠金" value={fmtCNY(bonus)} color={COLORS.orange} hideRange
           icon={<SafetyCertificateOutlined style={{ fontSize: '20px', color: COLORS.orange }} />}
-          hint="平台赠送的代金额度，优先于充值余额抵扣消费。" />
+          hint="平台赠送的代金额度，优先于充值余额抵扣消费；为全局余额。" />
       </div>
 
-      {/* 消耗概览：请求数 / 总Token(输入·缓存·输出) / 图片生成(成功·失败) / 视频生成(成功·失败) —— 对齐 OneLink 总览 */}
+      {/* 消耗概览：请求数 / 总Token / 图片生成 / 视频生成 —— 卡内文案改为迷你趋势图 (deepseek API platform 风格) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px' }}>
-        {/* 请求数 */}
+        {/* 请求数 —— 面积迷你趋势 */}
         <div className="portkey-card overview-stat">
           <div className="overview-stat-head">
-            <span className="overview-stat-label">请求数</span>
+            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间窗口内的总请求数。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：文本 + 多模态全部模型</div></div>} placement="top">
+              <span className="overview-stat-label card-title-hint">请求数</span>
+            </ATooltip>
             <span className="overview-stat-value">{totalReq.toLocaleString()}</span>
           </div>
+          <div className="overview-stat-chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={dailyData} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="spkReq" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={COLORS.blue} stopOpacity={0.25} />
+                    <stop offset="100%" stopColor={COLORS.blue} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" hide />
+                <Tooltip content={<CustomTooltip unit=" 次" />} cursor={CROSSHAIR} />
+                <Area type="monotone" dataKey="requests" name="请求数" stroke={COLORS.blue} strokeWidth={1.8} fill="url(#spkReq)" activeDot={ACTIVE_DOT} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="overview-stat-sub">{rangeLabel}</div>
         </div>
-        {/* 总 Token */}
+        {/* 总 Token —— 输入/缓存/输出 堆叠迷你柱，明细见浮窗 */}
         <div className="portkey-card overview-stat">
           <div className="overview-stat-head">
             <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间窗口内的 Token 消耗总量,拆分为输入、缓存、输出三部分。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：文本 + 多模态全部模型</div></div>} placement="top">
@@ -515,13 +486,20 @@ const CostView = () => {
             </ATooltip>
             <span className="overview-stat-value">{fmtM(totalToken)}</span>
           </div>
-          <div className="overview-sub-row">
-            <div className="overview-sub"><span>输入</span><b>{fmtM(totalInput)}</b></div>
-            <div className="overview-sub"><span>缓存</span><b>{fmtM(totalCache)}</b></div>
-            <div className="overview-sub"><span>输出</span><b>{fmtM(totalOutput)}</b></div>
+          <div className="overview-stat-chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={dailyData} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+                <XAxis dataKey="date" hide />
+                <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
+                <Bar dataKey="inputTokens" name="输入" stackId="t" fill={COLORS.blue} maxBarSize={14} />
+                <Bar dataKey="cacheTokens" name="缓存" stackId="t" fill={COLORS.cyan} maxBarSize={14} />
+                <Bar dataKey="outputTokens" name="输出" stackId="t" fill={COLORS.purple} maxBarSize={14} radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
+          <div className="overview-stat-sub">{rangeLabel}</div>
         </div>
-        {/* 图片生成 */}
+        {/* 图片生成 —— 成功/失败 堆叠迷你柱 */}
         <div className="portkey-card overview-stat">
           <div className="overview-stat-head">
             <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间窗口内的图片生成任务数,拆分为成功与失败。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：图像生成模型(文生图/图生图)</div></div>} placement="top">
@@ -529,12 +507,18 @@ const CostView = () => {
             </ATooltip>
             <span className="overview-stat-value">{totalImg.toLocaleString()}</span>
           </div>
-          <div className="overview-sub-row">
-            <div className="overview-sub"><span>成功</span><b>{imgSuccess.toLocaleString()}</b></div>
-            <div className="overview-sub"><span>失败</span><b style={{ color: imgFailed ? COLORS.red : undefined }}>{imgFailed}</b></div>
+          <div className="overview-stat-chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={imgDaily} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+                <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
+                <Bar dataKey="ok" name="成功" stackId="g" fill={COLORS.purple} maxBarSize={14} />
+                <Bar dataKey="fail" name="失败" stackId="g" fill={COLORS.red} maxBarSize={14} radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
+          <div className="overview-stat-sub">{rangeLabel}</div>
         </div>
-        {/* 视频生成 */}
+        {/* 视频生成 —— 成功/失败 堆叠迷你柱 */}
         <div className="portkey-card overview-stat">
           <div className="overview-stat-head">
             <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间窗口内的视频生成任务数,拆分为成功与失败。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：视频生成模型(文生视频/视频理解)</div></div>} placement="top">
@@ -542,10 +526,16 @@ const CostView = () => {
             </ATooltip>
             <span className="overview-stat-value">{totalVideo.toLocaleString()}</span>
           </div>
-          <div className="overview-sub-row">
-            <div className="overview-sub"><span>成功</span><b>{videoSuccess.toLocaleString()}</b></div>
-            <div className="overview-sub"><span>失败</span><b style={{ color: videoFailed ? COLORS.red : undefined }}>{videoFailed}</b></div>
+          <div className="overview-stat-chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={videoDaily} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+                <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
+                <Bar dataKey="ok" name="成功" stackId="g" fill={COLORS.cyan} maxBarSize={14} />
+                <Bar dataKey="fail" name="失败" stackId="g" fill={COLORS.red} maxBarSize={14} radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
+          <div className="overview-stat-sub">{rangeLabel}</div>
         </div>
       </div>
 
@@ -557,8 +547,8 @@ const CostView = () => {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} tickFormatter={v => (v / 1_000_000).toFixed(0) + 'M'} />
+              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} ticks={AXIS_END_TICKS} interval={0} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={2} tickFormatter={v => (v / 1_000_000).toFixed(0) + 'M'} />
               <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
               <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
               <Bar dataKey="inputTokens" name="输入" stackId="t" fill={COLORS.blue} maxBarSize={30} />
@@ -580,8 +570,8 @@ const CostView = () => {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} tickFormatter={v => '¥' + v} />
+              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} ticks={AXIS_END_TICKS} interval={0} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={2} tickFormatter={v => '¥' + v} />
               <Tooltip content={<CustomTooltip unit=" 元" />} cursor={CROSSHAIR} />
               <Area type="monotone" dataKey="spend" name="消费金额" stroke={COLORS.green} strokeWidth={2} fillOpacity={1} fill="url(#colorSpend)" />
             </AreaChart>
@@ -673,14 +663,11 @@ const DistributionCard = ({ title, metric, setMetric, data, tip, models }) => {
 };
 
 // --- 1. Cache Analytics ---
-const CacheView = () => {
-  const chartData = dailyData.map(d => ({
-    ...d,
-    cacheHits: d.simpleHits + d.semanticHits
-  }));
+// 缓存命中token数卡 (抽为组件，供缓存命中 Tab 与总览复用，样式完全一致)
+const CacheHitCard = () => {
+  const chartData = dailyData.map(d => ({ ...d, cacheHits: d.simpleHits + d.semanticHits }));
   const totalHitTokens = dailyData.reduce((s, d) => s + d.cacheHitTokens, 0);
   const hitRate = 65.4; // 命中率 (mock)
-  const totalSavings = dailyData.reduce((s, d) => s + d.savings, 0);
   const hits = useBreakdown({
     totalData: chartData,
     totalKey: 'cacheHits',
@@ -695,33 +682,45 @@ const CacheView = () => {
     pctColumnTitle: '缓存命中率',
     pctColumnRender: (_t, r) => MODEL_CACHE_HIT_RATES[r.model] || '65.4%'
   });
-  const savings = useBreakdown({ totalData: dailyData, totalKey: 'savings', totalName: '节省成本', totalColor: COLORS.green, byModel: cacheSavingsByModel, agg: 'sum', unit: ' 元', yTickFormatter: v => '¥' + v, modalTitle: '缓存节省成本 · 按模型明细', valueFmt: v => fmtCNY(v) });
   return (
-    <div className="dashboard-grid">
-      <XCard
-        title="缓存命中token数"
-        value={
-          <span style={{ display: 'flex', alignItems: 'baseline', gap: '16px' }}>
-            <span>{fmtM(totalHitTokens)}</span>
-            <span style={{ fontSize: '14px', fontWeight: 500, color: COLORS.textLight }}>命中率 {hitRate}%</span>
-          </span>
-        }
-        tip="缓存命中节省的 Token 总量与命中率;曲线展示缓存命中token数走势。命中越多、命中率越高，越能降低重复推理成本。"
-        models="文本模型(命中缓存复用的输入/输出 Token)"
-        extra={hits.extra} control={hits.control}>
-        {hits.chart}
-        {hits.modal}
-      </XCard>
-      <XCard title="缓存节省成本" value={fmtCNY(totalSavings)}
-        tip="缓存命中的请求免去了真实模型调用，按其原应产生的费用估算累计节省金额。"
-        models="文本模型(命中缓存复用的请求)"
-        extra={savings.extra} control={savings.control}>
-        {savings.chart}
-        {savings.modal}
-      </XCard>
-    </div>
+    <XCard
+      title="缓存命中token数"
+      value={
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: '16px' }}>
+          <span>{fmtM(totalHitTokens)}</span>
+          <span style={{ fontSize: '14px', fontWeight: 500, color: COLORS.textLight }}>命中率 {hitRate}%</span>
+        </span>
+      }
+      tip="缓存命中节省的 Token 总量与命中率;曲线展示缓存命中token数走势。命中越多、命中率越高，越能降低重复推理成本。"
+      models="文本模型(命中缓存复用的输入/输出 Token)"
+      extra={hits.extra} control={hits.control}>
+      {hits.chart}
+      {hits.modal}
+    </XCard>
   );
 };
+
+// 缓存节省成本卡
+const CacheSavingsCard = () => {
+  const totalSavings = dailyData.reduce((s, d) => s + d.savings, 0);
+  const savings = useBreakdown({ totalData: dailyData, totalKey: 'savings', totalName: '节省成本', totalColor: COLORS.green, byModel: cacheSavingsByModel, agg: 'sum', unit: ' 元', yTickFormatter: v => '¥' + v, modalTitle: '缓存节省成本 · 按模型明细', valueFmt: v => fmtCNY(v) });
+  return (
+    <XCard title="缓存节省成本" value={fmtCNY(totalSavings)}
+      tip="缓存命中的请求免去了真实模型调用，按其原应产生的费用估算累计节省金额。"
+      models="文本模型(命中缓存复用的请求)"
+      extra={savings.extra} control={savings.control}>
+      {savings.chart}
+      {savings.modal}
+    </XCard>
+  );
+};
+
+const CacheView = () => (
+  <div className="dashboard-grid">
+    <CacheHitCard />
+    <CacheSavingsCard />
+  </div>
+);
 // --- 2. Error Analytics ---
 const ErrorsView = () => {
   const rate = useBreakdown({ totalData: dailyData, totalKey: 'errorRate', totalName: '报错率', totalColor: COLORS.red, byModel: errorRateByModel, agg: 'avg', unit: '%', modalTitle: '报错率 · 按模型明细', valueFmt: v => v.toFixed(1) + '%' });
@@ -740,8 +739,8 @@ const ErrorsView = () => {
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-          <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-          <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} />
+          <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} ticks={AXIS_END_TICKS} interval={0} />
+          <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={2} />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f1f5f9' }} />
           <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
           <Bar dataKey="err429" name="429 限流" stackId="a" fill={COLORS.orange} maxBarSize={30} />
@@ -776,25 +775,31 @@ const ErrorsView = () => {
         </div>
       </div>
     </XCard>
-    <XCard title="挽救请求数" value="120"
-      tip="通过自动重试 / 故障转移成功挽回的报错请求数,反映容错能力。"
-      models="文本 + 多模态全部模型的 API 请求">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={dailyData.map(d => ({ ...d, rescued: 0 }))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-          <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-          <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} />
-          <Tooltip content={<CustomTooltip />} cursor={CROSSHAIR} />
-          <Line type="monotone" dataKey="rescued" name="挽救请求数" stroke={COLORS.green} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
-        </LineChart>
-      </ResponsiveContainer>
-    </XCard>
+    <RescuedCard />
   </div>
   );
 };
 
+// 挽救请求数卡 (抽为组件，供报错分析 Tab 与总览复用)
+const RescuedCard = () => (
+  <XCard title="挽救请求数" value="120"
+    tip="通过自动重试 / 故障转移成功挽回的报错请求数,反映容错能力。"
+    models="文本 + 多模态全部模型的 API 请求">
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={dailyData.map(d => ({ ...d, rescued: 0 }))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} ticks={AXIS_END_TICKS} interval={0} />
+        <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={2} />
+        <Tooltip content={<CustomTooltip />} cursor={CROSSHAIR} />
+        <Line type="monotone" dataKey="rescued" name="挽救请求数" stroke={COLORS.green} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
+      </LineChart>
+    </ResponsiveContainer>
+  </XCard>
+);
+
 // --- 4. Latency Analytics ---
-const LatencyView = () => {
+// 平均延迟卡 (含分位切换，抽为组件供延迟分析 Tab 与总览复用)
+const LatencyCard = () => {
   const [percentile, setPercentile] = useState('p50');
   const pSelect = (
     <select value={percentile} onChange={e => setPercentile(e.target.value)} style={{ padding: '3px 6px', borderRadius: '4px', border: `1px solid ${COLORS.gray}`, fontSize: '12px' }}>
@@ -804,26 +809,37 @@ const LatencyView = () => {
     </select>
   );
   const lat = useBreakdown({ totalData: dailyData, totalKey: percentile, totalName: `${percentile.toUpperCase()} 延迟`, totalColor: COLORS.blue, byModel: latByModel[percentile], agg: 'avg', unit: ' ms', modalTitle: '端到端延迟 · 按模型明细', valueFmt: v => Math.round(v) + ' ms', controlExtra: pSelect });
-  const ttft = useBreakdown({ totalData: dailyData, totalKey: 'ttft', totalName: '首字延迟', totalColor: COLORS.green, byModel: ttftByModel, agg: 'avg', unit: ' ms', modalTitle: '首字延迟 TTFT · 按模型明细', valueFmt: v => Math.round(v) + ' ms' });
   return (
-    <div className="dashboard-grid">
-      <XCard title="平均延迟" value={`${percentile.toUpperCase()}: 1.2s`}
-        tip="请求端到端总耗时的分位数 (P50/P95/P99),可切换分位观察长尾延迟。"
-        models="文本模型(对话/补全请求)"
-        extra={lat.extra} control={lat.control}>
-        {lat.chart}
-        {lat.modal}
-      </XCard>
-      <XCard title="平均首字延迟 (TTFT)" value="350 ms"
-        tip="从发起请求到返回第一个 Token 的耗时,衡量流式响应的初始体验。"
-        models="文本模型(流式对话/补全请求)"
-        extra={ttft.extra} control={ttft.control}>
-        {ttft.chart}
-        {ttft.modal}
-      </XCard>
-    </div>
+    <XCard title="平均延迟" value={`${percentile.toUpperCase()}: 1.2s`}
+      tip="请求端到端总耗时的分位数 (P50/P95/P99),可切换分位观察长尾延迟。"
+      models="文本模型(对话/补全请求)"
+      extra={lat.extra} control={lat.control}>
+      {lat.chart}
+      {lat.modal}
+    </XCard>
   );
 };
+
+// 平均首字延迟 (TTFT) 卡
+const TtftCard = () => {
+  const ttft = useBreakdown({ totalData: dailyData, totalKey: 'ttft', totalName: '首字延迟', totalColor: COLORS.green, byModel: ttftByModel, agg: 'avg', unit: ' ms', modalTitle: '首字延迟 TTFT · 按模型明细', valueFmt: v => Math.round(v) + ' ms' });
+  return (
+    <XCard title="平均首字延迟 (TTFT)" value="350 ms"
+      tip="从发起请求到返回第一个 Token 的耗时,衡量流式响应的初始体验。"
+      models="文本模型(流式对话/补全请求)"
+      extra={ttft.extra} control={ttft.control}>
+      {ttft.chart}
+      {ttft.modal}
+    </XCard>
+  );
+};
+
+const LatencyView = () => (
+  <div className="dashboard-grid">
+    <LatencyCard />
+    <TtftCard />
+  </div>
+);
 
 // --- 5. Multimodal Analytics ---
 // 文本分段切换控件：用于「按模态趋势/模型排行」「模态标签」等卡内视图切换
@@ -853,8 +869,8 @@ const MmCallCard = () => (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-        <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} />
+        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} ticks={AXIS_END_TICKS} interval={0} />
+        <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={2} />
         <Tooltip content={<CustomTooltip unit=" 次" />} cursor={{ fill: '#f1f5f9' }} />
         <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
         <Bar dataKey="mmImageReq" name="图像" stackId="a" fill={MODAL_COLORS.image} maxBarSize={30} />
@@ -900,63 +916,64 @@ const GenTimeCard = () => {
   );
 };
 
-const MultimodalView = () => {
-  return (
-    <div className="dashboard-grid">
-      {/* 1. 多模态调用量 + 模型调用排行 (整合) */}
-      <MmCallCard />
-
-      {/* 2. 生成类型分布 */}
-      <XCard title="生成类型分布"
-        tip="按生成媒体类型 (图片/视频/音频) 统计的产物数量占比。"
-        models="多模态生成模型:图像、视频、音频">
-        <div style={{ display: 'flex', height: '100%' }}>
-          <div style={{ flex: 1, position: 'relative' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={generationData} cx="50%" cy="50%" innerRadius="50%" outerRadius="80%" paddingAngle={2} dataKey="value" nameKey="name" stroke="none">
-                  {generationData.map((entry, idx) => (
-                    <Cell key={idx} fill={GEN_MODAL_COLORS[entry.name] || COLORS.gray} />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div style={{ width: '130px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            {generationData.map((item) => (
-              <div key={item.name} style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: GEN_MODAL_COLORS[item.name] || COLORS.gray }}></div>
-                <div style={{ fontSize: '11px', color: COLORS.textMain }}>{item.name}: {item.value}次</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </XCard>
-
-      {/* 3. 多模态成本 */}
-      <XCard title="多模态成本" value="¥1,860.00"
-        tip="按模态 (图像/音频/视频) 归因的消费金额,视频单价高需重点观察。"
-        models="多模态模型:图像、音频、视频">
+// 生成类型分布卡 (抽为组件，供多媒体 Tab 与总览复用)
+const GenTypeCard = () => (
+  <XCard title="生成类型分布"
+    tip="按生成媒体类型 (图片/视频/音频) 统计的产物数量占比。"
+    models="多模态生成模型:图像、视频、音频">
+    <div style={{ display: 'flex', height: '100%' }}>
+      <div style={{ flex: 1, position: 'relative' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} tickFormatter={v => '¥' + v} />
-            <Tooltip content={<CustomTooltip unit=" 元" />} cursor={{ fill: '#f1f5f9' }} />
-            <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
-            <Bar dataKey="mmImageCost" name="图像" stackId="c" fill={MODAL_COLORS.image} maxBarSize={30} />
-            <Bar dataKey="mmAudioCost" name="音频" stackId="c" fill={MODAL_COLORS.audio} maxBarSize={30} />
-            <Bar dataKey="mmVideoCost" name="视频" stackId="c" fill={MODAL_COLORS.video} maxBarSize={30} radius={[2, 2, 0, 0]} />
-          </BarChart>
+          <PieChart>
+            <Pie data={generationData} cx="50%" cy="50%" innerRadius="50%" outerRadius="80%" paddingAngle={2} dataKey="value" nameKey="name" stroke="none">
+              {generationData.map((entry, idx) => (
+                <Cell key={idx} fill={GEN_MODAL_COLORS[entry.name] || COLORS.gray} />
+              ))}
+            </Pie>
+            <Tooltip content={<CustomTooltip />} />
+          </PieChart>
         </ResponsiveContainer>
-      </XCard>
-
-      {/* 4. 平均生成时长 (整合：模态标签 + 总览/按模型) */}
-      <GenTimeCard />
+      </div>
+      <div style={{ width: '130px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        {generationData.map((item) => (
+          <div key={item.name} style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: GEN_MODAL_COLORS[item.name] || COLORS.gray }}></div>
+            <div style={{ fontSize: '11px', color: COLORS.textMain }}>{item.name}: {item.value}次</div>
+          </div>
+        ))}
+      </div>
     </div>
-  );
-};
+  </XCard>
+);
+
+// 多模态成本卡
+const MmCostCard = () => (
+  <XCard title="多模态成本" value="¥1,860.00"
+    tip="按模态 (图像/音频/视频) 归因的消费金额,视频单价高需重点观察。"
+    models="多模态模型:图像、音频、视频">
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} ticks={AXIS_END_TICKS} interval={0} />
+        <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={2} tickFormatter={v => '¥' + v} />
+        <Tooltip content={<CustomTooltip unit=" 元" />} cursor={{ fill: '#f1f5f9' }} />
+        <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+        <Bar dataKey="mmImageCost" name="图像" stackId="c" fill={MODAL_COLORS.image} maxBarSize={30} />
+        <Bar dataKey="mmAudioCost" name="音频" stackId="c" fill={MODAL_COLORS.audio} maxBarSize={30} />
+        <Bar dataKey="mmVideoCost" name="视频" stackId="c" fill={MODAL_COLORS.video} maxBarSize={30} radius={[2, 2, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  </XCard>
+);
+
+const MultimodalView = () => (
+  <div className="dashboard-grid">
+    <MmCallCard />
+    <GenTypeCard />
+    <MmCostCard />
+    <GenTimeCard />
+  </div>
+);
 
 // =====================================================================
 // 按模型维度的呈现 (方案 B, 分层) —— 图内「总览 ⇄ 按模型」切换 + 「展开详情」全量弹窗
@@ -1131,26 +1148,24 @@ const useBreakdown = ({ totalData, totalKey, totalName, totalColor, byModel, agg
   const control = (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
       {controlExtra}
-      {/* 图标式分段切换：折线=总览，分支=按模型，hover 浮显文案 */}
-      <div style={{ display: 'flex', gap: '4px', background: 'transparent' }}>
-        {[['total', '总览', <LineChartOutlined key="i" style={{ fontSize: '15px' }} />], ['model', '按模型', <PartitionOutlined key="i" style={{ fontSize: '15px' }} />]].map(([k, lbl, icon]) => {
+      {/* 文案式分段切换：总览 / 按模型，与「费用 / Token」切换保持一致的设计 */}
+      <div style={{ display: 'flex', border: `1px solid ${COLORS.gray}`, borderRadius: '6px', overflow: 'hidden', fontSize: '12px' }}>
+        {[['total', '总览'], ['model', '按模型']].map(([k, lbl]) => {
           const disabled = singleModel && k === 'model';
           const isActive = effMode === k;
           return (
-            <ATooltip key={k} title={disabled ? '已按单个模型筛选，无需再拆分' : lbl} placement="top">
+            <ATooltip key={k} title={disabled ? '已按单个模型筛选，无需再拆分' : ''} placement="top">
               <span
                 onClick={() => { if (!disabled) setMode(k); }}
                 style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  padding: '5px',
-                  borderRadius: '4px',
+                  padding: '3px 10px',
                   cursor: disabled ? 'not-allowed' : 'pointer',
-                  color: disabled ? '#cbd5e1' : (isActive ? COLORS.blue : COLORS.textMuted),
-                  background: isActive ? '#f1f5f9' : 'transparent',
+                  background: isActive ? COLORS.blue : '#fff',
+                  color: disabled ? '#cbd5e1' : (isActive ? '#fff' : '#64748b'),
+                  whiteSpace: 'nowrap',
                   transition: 'all 0.2s'
                 }}>
-                {icon}
+                {lbl}
               </span>
             </ATooltip>
           );
@@ -1169,8 +1184,8 @@ const useBreakdown = ({ totalData, totalKey, totalName, totalColor, byModel, agg
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={effMode === 'model' ? modelView.data : scopedTotalData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-          <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-          <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} tickFormatter={yTickFormatter} />
+          <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} ticks={AXIS_END_TICKS} interval={0} />
+          <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={2} tickFormatter={yTickFormatter} />
           <Tooltip content={<CustomTooltip unit={unit} />} cursor={CROSSHAIR} />
           {effMode === 'model' && <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />}
           {effMode === 'model'
@@ -1192,8 +1207,8 @@ const useBreakdown = ({ totalData, totalKey, totalName, totalColor, byModel, agg
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={modelView.data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={5} tickFormatter={yTickFormatter} />
+            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} ticks={AXIS_END_TICKS} interval={0} />
+            <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={2} tickFormatter={yTickFormatter} />
             <Tooltip content={<CustomTooltip unit={unit} />} cursor={CROSSHAIR} />
             <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
             {renderKeyedLines(modelView.keys)}
