@@ -167,13 +167,17 @@ const modelSpendData = [
   { name: 'llama-3.1-70b', cost: 450.60, tokens: 11_000_000 },
 ];
 
-// --- 消耗分析: 消耗排行 (支持按 API Key 或 用户 排序) ---
+// --- 消耗分析: 消耗排行 (Key 级明细) ---
+// 注意: 用户 ↔ API Key 为一对多 (一个用户可拥有多个 Key)。下表为 Key 级原始数据,
+// 「按用户」视图按 user 聚合 token/费用, 「按 API Key」视图为 Key 级明细 + 所属用户。
 const consumeRankData = [
-  { key: 'k1', apiKey: 'sk-...a1b2', user: 'usr_rd_01', tokens: 42_800_000, media: '1,280', cost: 3420.50 },
-  { key: 'k2', apiKey: 'sk-...c3d4', user: 'usr_rd_07', tokens: 31_200_000, media: '860', cost: 2510.80 },
-  { key: 'k3', apiKey: 'sk-...e5f6', user: 'usr_mkt_05', tokens: 18_600_000, media: '2,140', cost: 1980.20 },
-  { key: 'k4', apiKey: 'sk-...g7h8', user: 'usr_ops_12', tokens: 12_100_000, media: '320', cost: 920.60 },
-  { key: 'k5', apiKey: 'sk-...i9j0', user: 'usr_hr_02', tokens: 6_400_000, media: '95', cost: 480.40 },
+  { key: 'k1', apiKey: 'sk-...a1b2', user: 'usr_rd_01', tokens: 28_000_000, media: 800, cost: 2100.30 },
+  { key: 'k2', apiKey: 'sk-...a1f9', user: 'usr_rd_01', tokens: 14_800_000, media: 480, cost: 1320.20 },
+  { key: 'k3', apiKey: 'sk-...c3d4', user: 'usr_rd_07', tokens: 31_200_000, media: 860, cost: 2510.80 },
+  { key: 'k4', apiKey: 'sk-...e5f6', user: 'usr_mkt_05', tokens: 18_600_000, media: 2140, cost: 1980.20 },
+  { key: 'k5', apiKey: 'sk-...k1l2', user: 'usr_mkt_05', tokens: 9_200_000, media: 600, cost: 740.60 },
+  { key: 'k6', apiKey: 'sk-...g7h8', user: 'usr_ops_12', tokens: 12_100_000, media: 320, cost: 920.60 },
+  { key: 'k7', apiKey: 'sk-...i9j0', user: 'usr_hr_02', tokens: 6_400_000, media: 95, cost: 480.40 },
 ];
 
 
