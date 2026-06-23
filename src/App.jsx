@@ -384,7 +384,7 @@ const CostView = () => {
   const rangeLabel = useContext(TimeRangeContext);
   const [provMetric, setProvMetric] = useState('cost'); // cost | tokens
   const [modelMetric, setModelMetric] = useState('cost');
-  const [rankSort, setRankSort] = useState('cost'); // cost | apiKey | user
+  const [rankDim, setRankDim] = useState('user'); // user | apiKey —— 排行维度 (用户↔Key 为一对多, 分开看)
 
   // 消耗概览聚合
   const totalReq = dailyData.reduce((s, d) => s + d.requests, 0);
