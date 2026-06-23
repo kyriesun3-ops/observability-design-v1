@@ -510,6 +510,7 @@ const CostView = () => {
           <div className="overview-stat-chart">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={imgDaily} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+                <XAxis dataKey="date" hide />
                 <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
                 <Bar dataKey="ok" name="成功" stackId="g" fill={COLORS.purple} maxBarSize={14} />
                 <Bar dataKey="fail" name="失败" stackId="g" fill={COLORS.red} maxBarSize={14} radius={[2, 2, 0, 0]} />
@@ -529,6 +530,7 @@ const CostView = () => {
           <div className="overview-stat-chart">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={videoDaily} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+                <XAxis dataKey="date" hide />
                 <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
                 <Bar dataKey="ok" name="成功" stackId="g" fill={COLORS.cyan} maxBarSize={14} />
                 <Bar dataKey="fail" name="失败" stackId="g" fill={COLORS.red} maxBarSize={14} radius={[2, 2, 0, 0]} />
