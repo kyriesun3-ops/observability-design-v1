@@ -31,3 +31,6 @@ dist-ssr
 .autosync.log
 .autosync.pid
 .autosync.lock
+
+# Codex skill (independent git repo, not part of this project)
+prototype-auto-sync.skill/
