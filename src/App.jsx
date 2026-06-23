@@ -410,28 +410,35 @@ const CostView = () => {
   const provData = [...providerSpendData].sort((a, b) => b[provMetric] - a[provMetric]);
   const modelData = [...modelSpendData].sort((a, b) => b[modelMetric] - a[modelMetric]);
 
-  // 消耗排行排序
-  const rankData = [...consumeRankData].sort((a, b) => {
-    if (rankSort === 'apiKey') return a.apiKey.localeCompare(b.apiKey);
-    if (rankSort === 'user') return a.user.localeCompare(b.user);
-    return b.cost - a.cost;
-  });
+  // 消耗排行：用户 ↔ API Key 为一对多，两种口径分开看以避免混淆
+  //   · 按用户  = 聚合口径：把该用户名下所有 Key 的 token/费用汇总
+  //   · 按API Key = 明细口径：Key 级原始行 + 所属用户 (Key→用户为多对一，不歧义)
+  const rankByKey = [...consumeRankData].sort((a, b) => b.cost - a.cost);
+  const rankByUser = Object.values(
+    consumeRankData.reduce((m, r) => {
+      const u = m[r.user] || (m[r.user] = { key: r.user, user: r.user, keyCount: 0, tokens: 0, cost: 0 });
+      u.keyCount += 1; u.tokens += r.tokens; u.cost += r.cost;
+      return m;
+    }, {})
+  ).sort((a, b) => b.cost - a.cost);
+  const rankData = rankDim === 'user' ? rankByUser : rankByKey;
 
-  const rankColumns = [
-    { title: '排名', key: 'rank', width: 60, render: (_t, _r, i) => <span style={{ fontWeight: 600, color: i < 3 ? COLORS.orange : COLORS.textMain }}>{i + 1}</span> },
-    {
-      title: 'API Key', dataIndex: 'apiKey', key: 'apiKey',
-      sorter: (a, b) => a.apiKey.localeCompare(b.apiKey),
-      render: t => <span style={{ fontFamily: 'monospace', color: COLORS.blue }}>{t}</span>,
-    },
-    {
-      title: '用户', dataIndex: 'user', key: 'user',
-      sorter: (a, b) => a.user.localeCompare(b.user),
-    },
-    { title: 'Token', dataIndex: 'tokens', key: 'tokens', render: t => fmtM(t) },
-    { title: '音视图', dataIndex: 'media', key: 'media' },
-    { title: '费用', dataIndex: 'cost', key: 'cost', render: t => <span style={{ color: COLORS.green, fontWeight: 600 }}>{fmtCNY(t)}</span> },
-  ];
+  const rankIndexCol = { title: '排名', key: 'rank', width: 60, render: (_t, _r, i) => <span style={{ fontWeight: 600, color: i < 3 ? COLORS.orange : COLORS.textMain }}>{i + 1}</span> };
+  const tokenCol = { title: 'Token', dataIndex: 'tokens', key: 'tokens', align: 'right', sorter: (a, b) => a.tokens - b.tokens, render: t => fmtM(t) };
+  const costCol = { title: '费用', dataIndex: 'cost', key: 'cost', align: 'right', sorter: (a, b) => a.cost - b.cost, defaultSortOrder: 'descend', render: t => <span style={{ color: COLORS.green, fontWeight: 600 }}>{fmtCNY(t)}</span> };
+  const rankColumns = rankDim === 'user'
+    ? [
+        rankIndexCol,
+        { title: '用户', dataIndex: 'user', key: 'user', render: t => <span style={{ fontWeight: 500, color: COLORS.textMain }}>{t}</span> },
+        { title: 'API Key 数', dataIndex: 'keyCount', key: 'keyCount', align: 'right', render: v => <span style={{ color: COLORS.textLight }}>{v} 个</span> },
+        tokenCol, costCol,
+      ]
+    : [
+        rankIndexCol,
+        { title: 'API Key', dataIndex: 'apiKey', key: 'apiKey', render: t => <span style={{ fontFamily: 'monospace', color: COLORS.blue }}>{t}</span> },
+        { title: '所属用户', dataIndex: 'user', key: 'user' },
+        tokenCol, costCol,
+      ];
 
   // deepseek API platform 风格：概览卡内嵌迷你趋势图所需的逐日序列 (图片/视频按 成功·失败 拆分)
   const imgDaily = dailyData.map(d => ({ date: d.date, ok: d.mmImageReq, fail: Math.max(1, Math.round(d.mmImageReq * 0.02)) }));
@@ -597,18 +604,28 @@ const CostView = () => {
           models="文本 + 多模态全部模型,按模型聚合" />
       </div>
 
-      {/* 消耗排行 */}
-      <Card
-        title={
-          <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>按消耗费用对 API Key / 用户排名（默认按费用从高到低）。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：文本 + 多模态全部模型</div></div>} placement="top">
-            <span className="card-title-hint">消耗排行</span>
+      {/* 消耗排行 —— 按用户(聚合) / 按 API Key(明细) 维度切换；用户 ↔ Key 为一对多 */}
+      <div className="portkey-card" style={{ height: 'auto', padding: '20px 24px 24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>支持「按用户」(聚合其名下全部 API Key 的 Token 与费用) 与「按 API Key」(Key 级明细 + 所属用户) 两种口径，默认按费用从高到低。注意用户与 API Key 为一对多。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：文本 + 多模态全部模型</div></div>} placement="top">
+            <span className="card-title-hint" style={{ fontSize: '13px', fontWeight: 500, color: '#64748b' }}>消耗排行</span>
           </ATooltip>
-        }
-        className="portkey-card" style={{ height: 'auto', padding: 0 }}>
-        <div className="card-body" style={{ padding: '12px 24px 24px 24px' }}>
-          <Table columns={rankColumns} dataSource={rankData} pagination={false} rowKey="key" size="small" />
+          <div style={{ display: 'flex', border: `1px solid ${COLORS.gray}`, borderRadius: '6px', overflow: 'hidden', fontSize: '12px' }}>
+            {[['user', '按用户'], ['apiKey', '按 API Key']].map(([k, lbl]) => (
+              <span key={k} onClick={() => setRankDim(k)}
+                style={{ padding: '3px 12px', cursor: 'pointer', whiteSpace: 'nowrap', background: rankDim === k ? COLORS.blue : '#fff', color: rankDim === k ? '#fff' : '#64748b' }}>
+                {lbl}
+              </span>
+            ))}
+          </div>
         </div>
-      </Card>
+        <div style={{ fontSize: '12px', color: COLORS.textLight, margin: '8px 0 14px' }}>
+          {rankDim === 'user'
+            ? '按用户聚合：合并该用户名下全部 API Key 的 Token 与费用（一个用户可拥有多个 Key）。'
+            : '按 API Key 明细：每行一个 Key，附其所属用户。'}
+        </div>
+        <Table columns={rankColumns} dataSource={rankData} pagination={false} rowKey="key" size="small" />
+      </div>
     </div>
   );
 };
