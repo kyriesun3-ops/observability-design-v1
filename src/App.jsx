@@ -812,7 +812,7 @@ const DistributionCard = ({ title, metric, setMetric, data, tip, modalities }) =
       <div className="card-header">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div className="card-title">
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6, maxWidth: '260px' }}>{tip}<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：{models}</div></div>} placement="top">
+            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6, maxWidth: '260px' }}>{tip}{modalities && <div style={{ marginTop: '8px' }}><Modalities value={modalities} /></div>}</div>} placement="top">
               <span className="card-title-hint">{title}</span>
             </ATooltip>
           </div>
