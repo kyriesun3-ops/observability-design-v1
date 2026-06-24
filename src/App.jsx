@@ -167,28 +167,16 @@ const modelSpendData = [
   { name: 'llama-3.1-70b', cost: 450.60, tokens: 11_000_000 },
 ];
 
-// --- 消耗分析: 消耗排行 (Key 级明细) ---
-// 注意: 用户 ↔ API Key 为一对多 (一个用户可拥有多个 Key)。下表为 Key 级原始数据,
-// 「按用户」视图按 user 聚合 token/费用, 「按 API Key」视图为 Key 级明细 + 所属用户。
+// --- 消耗分析: 消耗排行数据 ---
+// 层级关系均为多对一: 部门 ⊃ 用户 ⊃ API Key (1 个 Key 仅归属 1 个用户, 1 个用户归属 1 个部门)。
 const consumeRankData = [
-  { key: 'k1', apiKey: 'sk-...a1b2', user: 'usr_rd_01', tokens: 28_000_000, media: 800, cost: 2100.30 },
-  { key: 'k2', apiKey: 'sk-...a1f9', user: 'usr_rd_01', tokens: 14_800_000, media: 480, cost: 1320.20 },
-  { key: 'k3', apiKey: 'sk-...c3d4', user: 'usr_rd_07', tokens: 31_200_000, media: 860, cost: 2510.80 },
-  { key: 'k4', apiKey: 'sk-...e5f6', user: 'usr_mkt_05', tokens: 18_600_000, media: 2140, cost: 1980.20 },
-  { key: 'k5', apiKey: 'sk-...k1l2', user: 'usr_mkt_05', tokens: 9_200_000, media: 600, cost: 740.60 },
-  { key: 'k6', apiKey: 'sk-...g7h8', user: 'usr_ops_12', tokens: 12_100_000, media: 320, cost: 920.60 },
-  { key: 'k7', apiKey: 'sk-...i9j0', user: 'usr_hr_02', tokens: 6_400_000, media: 95, cost: 480.40 },
-];
-
-// --- 消耗分析: 终端用户消耗 (请求级 user_id, 与 API Key 为多对多) ---
-// 来源为调用请求上报的 user 参数, 非租户账号成员; 同一终端用户可经过多个 Key,
-// 故此处只展示「涉及 Key 数」而非单一归属, 用于转售 / 按客户分摊场景。
-const endUserRankData = [
-  { key: 'e1', endUser: 'u_8f3a2c', keyCount: 3, requests: 12840, tokens: 18_600_000, cost: 1480.20 },
-  { key: 'e2', endUser: 'u_2b71e9', keyCount: 2, requests: 9620, tokens: 14_200_000, cost: 1120.50 },
-  { key: 'e3', endUser: 'u_c4d017', keyCount: 4, requests: 7350, tokens: 9_800_000, cost: 860.30 },
-  { key: 'e4', endUser: 'u_55ab8f', keyCount: 1, requests: 5210, tokens: 6_400_000, cost: 540.80 },
-  { key: 'e5', endUser: 'u_9e02d1', keyCount: 2, requests: 3180, tokens: 4_100_000, cost: 360.40 },
+  { key: 'k1', apiKey: 'sk-...a1b2', user: 'usr_rd_01', dept: '研发', tokens: 28_000_000, cost: 2100.30 },
+  { key: 'k2', apiKey: 'sk-...a1f9', user: 'usr_rd_01', dept: '研发', tokens: 14_800_000, cost: 1320.20 },
+  { key: 'k3', apiKey: 'sk-...c3d4', user: 'usr_rd_07', dept: '研发', tokens: 31_200_000, cost: 2510.80 },
+  { key: 'k4', apiKey: 'sk-...e5f6', user: 'usr_mkt_05', dept: '市场', tokens: 18_600_000, cost: 1980.20 },
+  { key: 'k5', apiKey: 'sk-...k1l2', user: 'usr_mkt_05', dept: '市场', tokens: 9_200_000, cost: 740.60 },
+  { key: 'k6', apiKey: 'sk-...g7h8', user: 'usr_ops_12', dept: '运营', tokens: 12_100_000, cost: 920.60 },
+  { key: 'k7', apiKey: 'sk-...i9j0', user: 'usr_hr_02', dept: '人力', tokens: 6_400_000, cost: 480.40 },
 ];
 
 
