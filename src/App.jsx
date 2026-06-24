@@ -686,12 +686,12 @@ const CostView = () => {
       <div className="dashboard-grid">
         <DistributionCard
           title="按服务商分布" metric={provMetric} setMetric={setProvMetric} data={provData}
-          tip="所选时间窗口内消耗按上游服务商归因,可在费用与 Token 维度间切换。"
-          models="文本 + 多模态全部模型,按服务商聚合" />
+          tip="所选时间范围内的消耗按上游服务商归因，可在费用与 Token 两种口径间切换。"
+          modalities={['T', 'I', 'A', 'V']} />
         <DistributionCard
           title="按模型分布" metric={modelMetric} setMetric={setModelMetric} data={modelData}
-          tip="所选时间窗口内消耗按具体模型归因,可在费用与 Token 维度间切换。"
-          models="文本 + 多模态全部模型,按模型聚合" />
+          tip="所选时间范围内的消耗按具体模型归因，可在费用与 Token 两种口径间切换。"
+          modalities={['T', 'I', 'A', 'V']} />
       </div>
 
       {/* 消耗排行 —— 可下钻 (部门 → 用户 → API Key) · 费用/Token */}
