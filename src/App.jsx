@@ -169,14 +169,15 @@ const modelSpendData = [
 
 // --- 消耗分析: 消耗排行数据 ---
 // 层级关系均为多对一: 部门 ⊃ 用户 ⊃ API Key (1 个 Key 仅归属 1 个用户, 1 个用户归属 1 个部门)。
+// 每行附 model / provider 维度, 使排行可被全局筛选 (model/apiKey/user/provider) 联动过滤。
 const consumeRankData = [
-  { key: 'k1', apiKey: 'sk-...a1b2', user: 'usr_rd_01', dept: '研发', tokens: 28_000_000, cost: 2100.30 },
-  { key: 'k2', apiKey: 'sk-...a1f9', user: 'usr_rd_01', dept: '研发', tokens: 14_800_000, cost: 1320.20 },
-  { key: 'k3', apiKey: 'sk-...c3d4', user: 'usr_rd_07', dept: '研发', tokens: 31_200_000, cost: 2510.80 },
-  { key: 'k4', apiKey: 'sk-...e5f6', user: 'usr_mkt_05', dept: '市场', tokens: 18_600_000, cost: 1980.20 },
-  { key: 'k5', apiKey: 'sk-...k1l2', user: 'usr_mkt_05', dept: '市场', tokens: 9_200_000, cost: 740.60 },
-  { key: 'k6', apiKey: 'sk-...g7h8', user: 'usr_ops_12', dept: '运营', tokens: 12_100_000, cost: 920.60 },
-  { key: 'k7', apiKey: 'sk-...i9j0', user: 'usr_hr_02', dept: '人力', tokens: 6_400_000, cost: 480.40 },
+  { key: 'k1', apiKey: 'sk-...a1b2', user: 'usr_rd_01', dept: '研发', model: 'gpt-4o', provider: 'OpenAI', tokens: 28_000_000, cost: 2100.30 },
+  { key: 'k2', apiKey: 'sk-...a1f9', user: 'usr_rd_01', dept: '研发', model: 'claude-3-5-sonnet', provider: 'Anthropic', tokens: 14_800_000, cost: 1320.20 },
+  { key: 'k3', apiKey: 'sk-...c3d4', user: 'usr_rd_07', dept: '研发', model: 'gpt-4o-mini', provider: 'OpenAI', tokens: 31_200_000, cost: 2510.80 },
+  { key: 'k4', apiKey: 'sk-...e5f6', user: 'usr_mkt_05', dept: '市场', model: 'gemini-1.5-pro', provider: 'Google', tokens: 18_600_000, cost: 1980.20 },
+  { key: 'k5', apiKey: 'sk-...k1l2', user: 'usr_mkt_05', dept: '市场', model: 'qwen-max', provider: '通义千问', tokens: 9_200_000, cost: 740.60 },
+  { key: 'k6', apiKey: 'sk-...g7h8', user: 'usr_ops_12', dept: '运营', model: 'claude-3-haiku', provider: 'Anthropic', tokens: 12_100_000, cost: 920.60 },
+  { key: 'k7', apiKey: 'sk-...i9j0', user: 'usr_hr_02', dept: '人力', model: 'llama-3.1-70b', provider: 'Meta (Groq)', tokens: 6_400_000, cost: 480.40 },
 ];
 
 
@@ -296,20 +297,6 @@ const CustomTooltip = ({ active, payload, label, unit }) => {
     );
   }
   return null;
-};
-
-// 消耗排行「占比图」(Treemap) 的自定义矩形：部门色块 + 名称
-const TreeCell = (props) => {
-  const { x, y, width, height, name } = props;
-  const fill = props.fill || (props.payload && props.payload.fill) || COLORS.blue;
-  if (width <= 0 || height <= 0) return null;
-  const show = width > 56 && height > 26;
-  return (
-    <g>
-      <rect x={x} y={y} width={width} height={height} fill={fill} fillOpacity={0.92} stroke="#fff" strokeWidth={2} rx={4} />
-      {show && <text x={x + 8} y={y + 20} fill="#fff" fontSize={12} fontWeight={600} style={{ pointerEvents: 'none' }}>{name}</text>}
-    </g>
-  );
 };
 
 // --- TIME FILTER COMPONENT ---
