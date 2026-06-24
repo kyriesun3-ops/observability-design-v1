@@ -1662,6 +1662,7 @@ const App = () => {
           </div>
         </div>
       </div>
+      </FiltersContext.Provider>
       </FilterContext.Provider>
     </TimeRangeContext.Provider>
   );
