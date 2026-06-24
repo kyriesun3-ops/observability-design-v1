@@ -643,18 +643,26 @@ const CostView = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             {segmented([['dept', '部门'], ['member', '用户'], ['apiKey', 'API Key']], rankDim, setRankDim)}
             {segmented([['cost', '费用'], ['tokens', 'Token']], rankMetric, setRankMetric)}
-            {segmented([['bar', '排行榜'], ['tree', '占比图']], rankView, setRankView)}
           </div>
         </div>
-        <div style={{ fontSize: '12px', color: COLORS.textLight, margin: '8px 0 0' }}>
-          {rankDim === 'dept' ? '按部门聚合其名下全部用户与 API Key 的消耗。'
-            : rankDim === 'member' ? '按用户聚合其名下全部 API Key 的消耗（一个用户可拥有多个 Key）。'
-            : '按 API Key 明细：每行一个 Key，归属唯一用户与部门。'}
+        <div style={{ fontSize: '12px', color: COLORS.textLight, margin: '8px 0 0', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <span>
+            {rankDim === 'dept' ? '按部门聚合其名下全部用户与 API Key 的消耗。'
+              : rankDim === 'member' ? '按用户聚合其名下全部 API Key 的消耗（一个用户可拥有多个 Key）。'
+              : '按 API Key 明细：每行一个 Key，归属唯一用户与部门。'}
+          </span>
+          {rankFiltered && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '1px 8px', borderRadius: '10px', background: '#eff6ff', border: '1px solid #bfdbfe', color: COLORS.blue, fontSize: '11px' }}>
+              已按筛选过滤 · {scopedRows.length} 条记录
+            </span>
+          )}
         </div>
 
-        {rankView === 'bar' ? (
+        {rankData.length === 0 ? (
+          <div style={{ padding: '40px 0', textAlign: 'center', color: COLORS.textLight, fontSize: '13px' }}>当前筛选条件下暂无消耗数据</div>
+        ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '18px' }}>
-            {rankData.map((d, i) => {
+            {rankTop.map((d, i) => {
               const v = d[rankMetric];
               const pct = rankMax ? (v / rankMax) * 100 : 0;
               const share = (v / rankTotal) * 100;
@@ -681,26 +689,46 @@ const CostView = () => {
                 </div>
               );
             })}
-          </div>
-        ) : (
-          <div style={{ height: '320px', marginTop: '18px' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <Treemap data={rankData.map(d => ({ name: d.name, size: d[rankMetric], fill: deptColor(d.dept) }))}
-                dataKey="size" stroke="#fff" isAnimationActive={false} content={<TreeCell />}>
-                <Tooltip formatter={(v) => metricFmt(v)} />
-              </Treemap>
-            </ResponsiveContainer>
+            {/* 其他项合计 (长尾收敛为一条) */}
+            {rankRest.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, background: '#f1f5f9', color: COLORS.textLight }}>…</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px', gap: '12px' }}>
+                    <span style={{ fontSize: '13px', color: COLORS.textLight }}>其他 {rankRest.length} 项</span>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: COLORS.textLight, whiteSpace: 'nowrap' }}>{metricFmt(restTotal)}<span style={{ fontSize: '11px', fontWeight: 400, marginLeft: '6px' }}>{(restTotal / rankTotal * 100).toFixed(0)}%</span></span>
+                  </div>
+                  <div style={{ height: '8px', borderRadius: '4px', background: '#f1f5f9', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${rankMax ? (restTotal / rankMax) * 100 : 0}%`, borderRadius: '4px', background: '#cbd5e1' }} />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* 部门图例 */}
-        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '16px' }}>
-          {Object.entries(DEPT_COLORS).map(([d, c]) => (
-            <span key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: COLORS.textLight }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: c }} />{d}
+        {/* 底部：部门图例 + 查看全部 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '16px' }}>
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+            {Object.entries(DEPT_COLORS).map(([d, c]) => (
+              <span key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: COLORS.textLight }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: c }} />{d}
+              </span>
+            ))}
+          </div>
+          {rankData.length > 0 && (
+            <span onClick={() => setRankOpen(true)} style={{ fontSize: '12px', color: COLORS.blue, cursor: 'pointer', fontWeight: 500 }}>
+              查看全部 {rankData.length} 项 →
             </span>
-          ))}
+          )}
         </div>
+
+        <Modal open={rankOpen} onCancel={() => setRankOpen(false)} footer={null} width={760} title={`消耗排行 · 按${dimLabel}（全部 ${rankData.length} 项）`}>
+          <div style={{ fontSize: '12px', color: COLORS.textLight, margin: '4px 0 12px' }}>
+            按{rankMetric === 'cost' ? '费用' : 'Token'}从高到低，可点表头排序{rankFiltered ? '；已按当前全局筛选过滤' : ''}。
+          </div>
+          <Table columns={rankModalCols} dataSource={rankData} pagination={{ pageSize: 10, hideOnSinglePage: true }} rowKey="id" size="small" scroll={{ y: 360 }} />
+        </Modal>
       </div>
     </div>
   );
