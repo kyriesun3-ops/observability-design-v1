@@ -477,15 +477,25 @@ const CostView = () => {
       ))}
     </div>
   );
+  const deptDot = (t) => <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><span style={{ width: 7, height: 7, borderRadius: 2, background: deptColor(t) }} />{t}</span>;
   const rankModalCols = [
     { title: '排名', key: 'rank', width: 56, render: (_t, _r, i) => <span style={{ fontWeight: 600, color: i < 3 ? COLORS.orange : COLORS.textMain }}>{i + 1}</span> },
+    // 名称列：API Key 层用 Key、用户层用用户名、部门层即部门(带色点，部门层不再单列部门避免重复)
     rankLevel === 'apiKey'
       ? { title: 'API Key', dataIndex: 'name', key: 'name', render: t => <span style={{ fontFamily: 'monospace', color: COLORS.blue }}>{t}</span> }
-      : { title: dimLabel, dataIndex: 'name', key: 'name', render: t => <span style={{ fontWeight: 500 }}>{t}</span> },
-    { title: '部门', dataIndex: 'dept', key: 'dept', render: t => <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><span style={{ width: 7, height: 7, borderRadius: 2, background: deptColor(t) }} />{t}</span> },
+      : rankLevel === 'member'
+      ? { title: '用户', dataIndex: 'name', key: 'name', render: t => <span style={{ fontWeight: 500 }}>{t}</span> }
+      : { title: '部门', dataIndex: 'name', key: 'name', render: t => deptDot(t) },
+    // 部门列仅在 用户 / API Key 层级出现
+    ...(rankLevel === 'dept' ? [] : [{ title: '部门', dataIndex: 'dept', key: 'dept', render: t => deptDot(t) }]),
     ...(rankLevel === 'apiKey'
       ? [{ title: '所属用户', dataIndex: 'user', key: 'user' }]
-      : [{ title: 'API Key 数', dataIndex: 'keyCount', key: 'keyCount', align: 'right', render: v => v + ' 个' }]),
+      : rankLevel === 'member'
+      ? [{ title: 'API Key 数', dataIndex: 'keyCount', key: 'keyCount', align: 'right', render: v => v + ' 个' }]
+      : [
+          { title: '用户数', dataIndex: 'userCount', key: 'userCount', align: 'right', render: v => v + ' 名' },
+          { title: 'API Key 数', dataIndex: 'keyCount', key: 'keyCount', align: 'right', render: v => v + ' 个' },
+        ]),
     { title: 'Token', dataIndex: 'tokens', key: 'tokens', align: 'right', sorter: (a, b) => a.tokens - b.tokens, render: t => fmtM(t) },
     { title: '费用', dataIndex: 'cost', key: 'cost', align: 'right', sorter: (a, b) => a.cost - b.cost, defaultSortOrder: 'descend', render: t => <span style={{ color: COLORS.green, fontWeight: 600 }}>{fmtCNY(t)}</span> },
   ];
