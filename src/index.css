@@ -281,6 +281,20 @@ body {
   font-weight: 600;
   color: var(--text-main);
 }
+/* 消耗排行：可下钻条目行，hover 微亮提示可点击 */
+.rank-row {
+  border-radius: 8px;
+  padding: 4px 8px;
+  margin: 0 -8px;
+  transition: background 0.15s;
+}
+.rank-row.drillable {
+  cursor: pointer;
+}
+.rank-row.drillable:hover {
+  background: #f8fafc;
+}
+
 /* 概览统计卡内嵌的迷你趋势图 (deepseek API platform 风格)，无坐标轴、纯走势 */
 .overview-stat-chart {
   height: 56px;
