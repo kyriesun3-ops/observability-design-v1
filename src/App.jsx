@@ -1006,8 +1006,8 @@ const LatencyCard = () => {
   const lat = useBreakdown({ totalData: dailyData, totalKey: percentile, totalName: `${percentile.toUpperCase()} 延迟`, totalColor: COLORS.blue, byModel: latByModel[percentile], agg: 'avg', unit: ' ms', modalTitle: '端到端延迟 · 按模型明细', valueFmt: v => Math.round(v) + ' ms', controlExtra: pSelect });
   return (
     <XCard title="平均延迟" value={`${percentile.toUpperCase()}: 1.2s`}
-      tip="请求端到端总耗时的分位数 (P50/P95/P99),可切换分位观察长尾延迟。"
-      models="文本模型(对话/补全请求)"
+      tip="请求端到端总耗时的分位数（P50 / P95 / P99），可切换分位观察长尾延迟。"
+      modalities={['T']}
       extra={lat.extra} control={lat.control}>
       {lat.chart}
       {lat.modal}
@@ -1020,8 +1020,8 @@ const TtftCard = () => {
   const ttft = useBreakdown({ totalData: dailyData, totalKey: 'ttft', totalName: '首字延迟', totalColor: COLORS.green, byModel: ttftByModel, agg: 'avg', unit: ' ms', modalTitle: '首字延迟 TTFT · 按模型明细', valueFmt: v => Math.round(v) + ' ms' });
   return (
     <XCard title="平均首字延迟 (TTFT)" value="350 ms"
-      tip="从发起请求到返回第一个 Token 的耗时,衡量流式响应的初始体验。"
-      models="文本模型(流式对话/补全请求)"
+      tip="从发起请求到返回第一个 Token 的耗时（TTFT），衡量流式响应的初始体验。"
+      modalities={['T']}
       extra={ttft.extra} control={ttft.control}>
       {ttft.chart}
       {ttft.modal}
