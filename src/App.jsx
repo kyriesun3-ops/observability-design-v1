@@ -397,6 +397,7 @@ const CostView = () => {
   const [rankParent, setRankParent] = useState(null); // 下钻上下文 {type:'dept'|'member', value, dept?}
   const [rankMetric, setRankMetric] = useState('cost'); // cost | tokens
   const [rankOpen, setRankOpen] = useState(false);   // 查看全部 弹窗
+  const [rankSearch, setRankSearch] = useState('');  // 弹窗内按名称搜索
   const activeFilters = useContext(FiltersContext);  // 全局筛选 chip，驱动排行联动过滤
 
   // 消耗概览聚合
@@ -482,14 +483,18 @@ const CostView = () => {
     </div>
   );
   const deptDot = (t) => <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><span style={{ width: 7, height: 7, borderRadius: 2, background: deptColor(t) }} />{t}</span>;
+  // 可下钻层级的名称做成链接：点击即从全量列表下钻并关闭弹窗
+  const drillName = (content, record) => canDrill
+    ? <span onClick={() => { drillInto(record); setRankOpen(false); setRankSearch(''); }} style={{ cursor: 'pointer', color: COLORS.blue, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>{content}<span style={{ fontSize: '11px' }}>›</span></span>
+    : content;
   const rankModalCols = [
     { title: '排名', key: 'rank', width: 56, render: (_t, _r, i) => <span style={{ fontWeight: 600, color: i < 3 ? COLORS.orange : COLORS.textMain }}>{i + 1}</span> },
     // 名称列：API Key 层用 Key、用户层用用户名、部门层即部门(带色点，部门层不再单列部门避免重复)
     rankLevel === 'apiKey'
       ? { title: 'API Key', dataIndex: 'name', key: 'name', render: t => <span style={{ fontFamily: 'monospace', color: COLORS.blue }}>{t}</span> }
       : rankLevel === 'member'
-      ? { title: '用户', dataIndex: 'name', key: 'name', render: t => <span style={{ fontWeight: 500 }}>{t}</span> }
-      : { title: '部门', dataIndex: 'name', key: 'name', render: t => deptDot(t) },
+      ? { title: '用户', dataIndex: 'name', key: 'name', render: (t, r) => drillName(<span style={{ fontWeight: 500 }}>{t}</span>, r) }
+      : { title: '部门', dataIndex: 'name', key: 'name', render: (t, r) => drillName(deptDot(t), r) },
     // 部门列仅在 用户 / API Key 层级出现
     ...(rankLevel === 'dept' ? [] : [{ title: '部门', dataIndex: 'dept', key: 'dept', render: t => deptDot(t) }]),
     ...(rankLevel === 'apiKey'
