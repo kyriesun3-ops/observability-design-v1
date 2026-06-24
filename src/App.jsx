@@ -557,7 +557,7 @@ const CostView = () => {
         {/* 请求数 —— 面积迷你趋势 */}
         <div className="portkey-card overview-stat">
           <div className="overview-stat-head">
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间窗口内的总请求数。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：文本 + 多模态全部模型</div></div>} placement="top">
+            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间范围内的 API 请求总数。<div style={{ marginTop: '8px' }}><Modalities value={['T', 'I', 'A', 'V']} /></div></div>} placement="top">
               <span className="overview-stat-label card-title-hint">请求数</span>
             </ATooltip>
             <span className="overview-stat-value">{totalReq.toLocaleString()}</span>
