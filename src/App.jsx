@@ -232,6 +232,8 @@ const GEN_MODAL_COLORS = {
 const TimeRangeContext = createContext('数据来自 05月03日 至 06月01日');
 // 全局筛选：当前生效的「模型」筛选值列表 (空 = 未筛选)，驱动各指标卡的按模型联动
 const FilterContext = createContext([]);
+// 全局筛选：完整 chip 列表 [{key,value}]，驱动消耗排行等按 model/user/apiKey/provider 过滤
+const FiltersContext = createContext([]);
 
 const XCard = ({ title, value, subtitle, tip, models, extra, control, children }) => {
   const rangeLabel = useContext(TimeRangeContext);
