@@ -617,36 +617,73 @@ const CostView = () => {
           models="文本 + 多模态全部模型,按模型聚合" />
       </div>
 
-      {/* 消耗排行 —— 按用户(聚合) / 按 API Key(明细) 维度切换；用户 ↔ Key 为一对多 */}
+      {/* 消耗排行 —— 部门/用户/API Key 三维度 · 费用/Token · 排行榜/占比图 */}
       <div className="portkey-card" style={{ height: 'auto', padding: '20px 24px 24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>三个维度：「成员/API Key」为租户可治理实体(限额、回收、问责)；「终端用户」为请求级身份(应用上报的 user)，与 Key 为多对多，用于转售/按客户分摊。默认按费用从高到低。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：文本 + 多模态全部模型</div></div>} placement="top">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>层级为 部门 ⊃ 用户 ⊃ API Key（均多对一：1 个 Key 仅归属 1 个用户、1 个用户归属 1 个部门）。可在三维度与 费用/Token 间切换，按消耗从高到低。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：文本 + 多模态全部模型</div></div>} placement="top">
             <span className="card-title-hint" style={{ fontSize: '13px', fontWeight: 500, color: '#64748b' }}>消耗排行</span>
           </ATooltip>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ display: 'flex', border: `1px solid ${COLORS.gray}`, borderRadius: '6px', overflow: 'hidden', fontSize: '12px' }}>
-              {[['apiKey', '按 API Key'], ['member', '按成员']].map(([k, lbl]) => (
-                <span key={k} onClick={() => setRankDim(k)}
-                  style={{ padding: '3px 12px', cursor: 'pointer', whiteSpace: 'nowrap', background: rankDim === k ? COLORS.blue : '#fff', color: rankDim === k ? '#fff' : '#64748b' }}>
-                  {lbl}
-                </span>
-              ))}
-            </div>
-            <span style={{ color: COLORS.gray }}>|</span>
-            <span onClick={() => setRankDim('enduser')}
-              style={{ padding: '3px 12px', cursor: 'pointer', whiteSpace: 'nowrap', fontSize: '12px', borderRadius: '6px', border: `1px solid ${rankDim === 'enduser' ? COLORS.purple : COLORS.gray}`, background: rankDim === 'enduser' ? COLORS.purple : '#fff', color: rankDim === 'enduser' ? '#fff' : '#64748b' }}>
-              按终端用户
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {segmented([['dept', '部门'], ['member', '用户'], ['apiKey', 'API Key']], rankDim, setRankDim)}
+            {segmented([['cost', '费用'], ['tokens', 'Token']], rankMetric, setRankMetric)}
+            {segmented([['bar', '排行榜'], ['tree', '占比图']], rankView, setRankView)}
           </div>
         </div>
-        <div style={{ fontSize: '12px', color: COLORS.textLight, margin: '8px 0 14px' }}>
-          {rankDim === 'apiKey'
-            ? '按 API Key 明细：每行一个 Key，附所属成员（Key 为限额/回收的治理单元）。'
-            : rankDim === 'member'
-            ? '按成员聚合：合并该成员名下全部 API Key 的 Token 与费用（一个成员可拥有多个 Key）。'
-            : '按终端用户（请求级 user_id，来自应用上报）：与 Key 为多对多，故展示「涉及 Key 数」而非单一归属，用于转售/按客户分摊。'}
+        <div style={{ fontSize: '12px', color: COLORS.textLight, margin: '8px 0 0' }}>
+          {rankDim === 'dept' ? '按部门聚合其名下全部用户与 API Key 的消耗。'
+            : rankDim === 'member' ? '按用户聚合其名下全部 API Key 的消耗（一个用户可拥有多个 Key）。'
+            : '按 API Key 明细：每行一个 Key，归属唯一用户与部门。'}
         </div>
-        <Table columns={rankColumns} dataSource={rankData} pagination={false} rowKey="key" size="small" />
+
+        {rankView === 'bar' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '18px' }}>
+            {rankData.map((d, i) => {
+              const v = d[rankMetric];
+              const pct = rankMax ? (v / rankMax) * 100 : 0;
+              const share = (v / rankTotal) * 100;
+              const col = deptColor(d.dept);
+              const isKey = rankDim === 'apiKey';
+              const sub = rankDim === 'dept' ? `${d.userCount} 名用户 · ${d.keyCount} 个 Key`
+                : rankDim === 'member' ? `${d.dept} · ${d.keyCount} 个 Key`
+                : `${d.dept} · ${d.user}`;
+              return (
+                <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, background: i < 3 ? col : '#f1f5f9', color: i < 3 ? '#fff' : COLORS.textLight }}>{i + 1}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px', gap: '12px' }}>
+                      <span style={{ fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <span style={isKey ? { fontFamily: 'monospace', color: COLORS.blue } : { color: COLORS.textMain, fontWeight: 600 }}>{d.name}</span>
+                        <span style={{ fontSize: '11px', color: COLORS.textLight, marginLeft: '8px' }}>{sub}</span>
+                      </span>
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: COLORS.textMain, whiteSpace: 'nowrap' }}>{metricFmt(v)}<span style={{ fontSize: '11px', color: COLORS.textLight, fontWeight: 400, marginLeft: '6px' }}>{share.toFixed(0)}%</span></span>
+                    </div>
+                    <div style={{ height: '8px', borderRadius: '4px', background: '#f1f5f9', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, borderRadius: '4px', background: col, transition: 'width .3s' }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ height: '320px', marginTop: '18px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <Treemap data={rankData.map(d => ({ name: d.name, size: d[rankMetric], fill: deptColor(d.dept) }))}
+                dataKey="size" stroke="#fff" isAnimationActive={false} content={<TreeCell />}>
+                <Tooltip formatter={(v) => metricFmt(v)} />
+              </Treemap>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* 部门图例 */}
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '16px' }}>
+          {Object.entries(DEPT_COLORS).map(([d, c]) => (
+            <span key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: COLORS.textLight }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: c }} />{d}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );
