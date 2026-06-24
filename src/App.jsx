@@ -178,6 +178,10 @@ const consumeRankData = [
   { key: 'k5', apiKey: 'sk-...k1l2', user: 'usr_mkt_05', dept: '市场', model: 'qwen-max', provider: '通义千问', tokens: 9_200_000, cost: 740.60 },
   { key: 'k6', apiKey: 'sk-...g7h8', user: 'usr_ops_12', dept: '运营', model: 'claude-3-haiku', provider: 'Anthropic', tokens: 12_100_000, cost: 920.60 },
   { key: 'k7', apiKey: 'sk-...i9j0', user: 'usr_hr_02', dept: '人力', model: 'llama-3.1-70b', provider: 'Meta (Groq)', tokens: 6_400_000, cost: 480.40 },
+  { key: 'k8', apiKey: 'sk-...m2n4', user: 'usr_fin_03', dept: '财务', model: 'gpt-4o', provider: 'OpenAI', tokens: 16_300_000, cost: 1610.50 },
+  { key: 'k9', apiKey: 'sk-...p5q6', user: 'usr_dsn_08', dept: '设计', model: 'gemini-1.5-flash', provider: 'Google', tokens: 7_800_000, cost: 540.70 },
+  { key: 'k10', apiKey: 'sk-...r7s8', user: 'usr_dat_11', dept: '数据', model: 'deepseek-v3', provider: '通义千问', tokens: 22_400_000, cost: 1340.90 },
+  { key: 'k11', apiKey: 'sk-...t9u0', user: 'usr_dat_11', dept: '数据', model: 'qwen-plus', provider: '通义千问', tokens: 5_100_000, cost: 360.20 },
 ];
 
 
