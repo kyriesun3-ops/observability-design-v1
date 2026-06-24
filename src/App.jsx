@@ -450,8 +450,6 @@ const CostView = () => {
   const rankData = [...rankSrc].sort((a, b) => b[rankMetric] - a[rankMetric]);
   const RANK_TOP_N = 5;
   const rankTop = rankData.slice(0, RANK_TOP_N);
-  const rankRest = rankData.slice(RANK_TOP_N);
-  const restTotal = rankRest.reduce((s, d) => s + d[rankMetric], 0);
   const rankMax = rankData.length ? rankData[0][rankMetric] : 1;
   const rankTotal = rankData.reduce((s, d) => s + d[rankMetric], 0) || 1;
   const metricFmt = (v) => rankMetric === 'cost' ? fmtCNY(v) : fmtM(v);
