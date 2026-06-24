@@ -194,6 +194,9 @@ const COLORS = {
 
 const PIE_COLORS = [COLORS.red, COLORS.orange, COLORS.blue, COLORS.purple, COLORS.cyan];
 
+// 部门配色 (消耗排行：部门/用户/Key 三维度统一按部门着色)
+const DEPT_COLORS = { '研发': COLORS.blue, '市场': COLORS.purple, '运营': COLORS.cyan, '人力': COLORS.orange };
+
 // OpenRouter 风格：鼠标跟随的垂直参考线 (细实线) 与折线高亮圆点
 const CROSSHAIR = { stroke: '#cbd5e1', strokeWidth: 1 };
 const ACTIVE_DOT = { r: 4, strokeWidth: 2, stroke: '#fff' };
@@ -293,6 +296,20 @@ const CustomTooltip = ({ active, payload, label, unit }) => {
     );
   }
   return null;
+};
+
+// 消耗排行「占比图」(Treemap) 的自定义矩形：部门色块 + 名称
+const TreeCell = (props) => {
+  const { x, y, width, height, name } = props;
+  const fill = props.fill || (props.payload && props.payload.fill) || COLORS.blue;
+  if (width <= 0 || height <= 0) return null;
+  const show = width > 56 && height > 26;
+  return (
+    <g>
+      <rect x={x} y={y} width={width} height={height} fill={fill} fillOpacity={0.92} stroke="#fff" strokeWidth={2} rx={4} />
+      {show && <text x={x + 8} y={y + 20} fill="#fff" fontSize={12} fontWeight={600} style={{ pointerEvents: 'none' }}>{name}</text>}
+    </g>
+  );
 };
 
 // --- TIME FILTER COMPONENT ---
