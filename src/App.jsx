@@ -628,22 +628,31 @@ const CostView = () => {
       {/* 消耗排行 —— 按用户(聚合) / 按 API Key(明细) 维度切换；用户 ↔ Key 为一对多 */}
       <div className="portkey-card" style={{ height: 'auto', padding: '20px 24px 24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>支持「按用户」(聚合其名下全部 API Key 的 Token 与费用) 与「按 API Key」(Key 级明细 + 所属用户) 两种口径，默认按费用从高到低。注意用户与 API Key 为一对多。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：文本 + 多模态全部模型</div></div>} placement="top">
+          <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>三个维度：「成员/API Key」为租户可治理实体(限额、回收、问责)；「终端用户」为请求级身份(应用上报的 user)，与 Key 为多对多，用于转售/按客户分摊。默认按费用从高到低。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：文本 + 多模态全部模型</div></div>} placement="top">
             <span className="card-title-hint" style={{ fontSize: '13px', fontWeight: 500, color: '#64748b' }}>消耗排行</span>
           </ATooltip>
-          <div style={{ display: 'flex', border: `1px solid ${COLORS.gray}`, borderRadius: '6px', overflow: 'hidden', fontSize: '12px' }}>
-            {[['user', '按用户'], ['apiKey', '按 API Key']].map(([k, lbl]) => (
-              <span key={k} onClick={() => setRankDim(k)}
-                style={{ padding: '3px 12px', cursor: 'pointer', whiteSpace: 'nowrap', background: rankDim === k ? COLORS.blue : '#fff', color: rankDim === k ? '#fff' : '#64748b' }}>
-                {lbl}
-              </span>
-            ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', border: `1px solid ${COLORS.gray}`, borderRadius: '6px', overflow: 'hidden', fontSize: '12px' }}>
+              {[['apiKey', '按 API Key'], ['member', '按成员']].map(([k, lbl]) => (
+                <span key={k} onClick={() => setRankDim(k)}
+                  style={{ padding: '3px 12px', cursor: 'pointer', whiteSpace: 'nowrap', background: rankDim === k ? COLORS.blue : '#fff', color: rankDim === k ? '#fff' : '#64748b' }}>
+                  {lbl}
+                </span>
+              ))}
+            </div>
+            <span style={{ color: COLORS.gray }}>|</span>
+            <span onClick={() => setRankDim('enduser')}
+              style={{ padding: '3px 12px', cursor: 'pointer', whiteSpace: 'nowrap', fontSize: '12px', borderRadius: '6px', border: `1px solid ${rankDim === 'enduser' ? COLORS.purple : COLORS.gray}`, background: rankDim === 'enduser' ? COLORS.purple : '#fff', color: rankDim === 'enduser' ? '#fff' : '#64748b' }}>
+              按终端用户
+            </span>
           </div>
         </div>
         <div style={{ fontSize: '12px', color: COLORS.textLight, margin: '8px 0 14px' }}>
-          {rankDim === 'user'
-            ? '按用户聚合：合并该用户名下全部 API Key 的 Token 与费用（一个用户可拥有多个 Key）。'
-            : '按 API Key 明细：每行一个 Key，附其所属用户。'}
+          {rankDim === 'apiKey'
+            ? '按 API Key 明细：每行一个 Key，附所属成员（Key 为限额/回收的治理单元）。'
+            : rankDim === 'member'
+            ? '按成员聚合：合并该成员名下全部 API Key 的 Token 与费用（一个成员可拥有多个 Key）。'
+            : '按终端用户（请求级 user_id，来自应用上报）：与 Key 为多对多，故展示「涉及 Key 数」而非单一归属，用于转售/按客户分摊。'}
         </div>
         <Table columns={rankColumns} dataSource={rankData} pagination={false} rowKey="key" size="small" />
       </div>
