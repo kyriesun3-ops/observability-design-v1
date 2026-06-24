@@ -727,21 +727,6 @@ const CostView = () => {
                 </div>
               );
             })}
-            {/* 其他项合计 (长尾收敛为一条) */}
-            {rankRest.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 8px', margin: '0 -8px' }}>
-                <span style={{ width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, background: '#f1f5f9', color: COLORS.textLight }}>…</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px', gap: '12px' }}>
-                    <span style={{ fontSize: '13px', color: COLORS.textLight }}>其他 {rankRest.length} 项</span>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: COLORS.textLight, whiteSpace: 'nowrap' }}>{metricFmt(restTotal)}<span style={{ fontSize: '11px', fontWeight: 400, marginLeft: '6px' }}>{(restTotal / rankTotal * 100).toFixed(0)}%</span></span>
-                  </div>
-                  <div style={{ height: '8px', borderRadius: '4px', background: '#f1f5f9', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${rankMax ? (restTotal / rankMax) * 100 : 0}%`, borderRadius: '4px', background: '#cbd5e1' }} />
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
