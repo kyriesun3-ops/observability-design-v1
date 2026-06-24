@@ -1102,8 +1102,8 @@ const GenTimeCard = () => {
   });
   return (
     <XCard title="平均生成时长" value={`${meta.label} ${p.toUpperCase()}: ${dailyData.at(-1)[dk]}s`}
-      tip="多模态生成任务从提交到产物完成的处理时长分位数(P50/P95/P99)。按模态(图像/音频/视频)切换，默认视频；可在总览与按模型之间切换。"
-      models="多模态生成模型：图像、音频、视频"
+      tip="多模态生成任务从提交到产物完成的处理时长分位数（P50 / P95 / P99）。可按模态（图像/音频/视频）切换，默认视频；并可在总览与按模型之间切换。"
+      modalities={['I', 'A', 'V']}
       extra={mb.extra} control={mb.control}>
       {mb.chart}
       {mb.modal}
