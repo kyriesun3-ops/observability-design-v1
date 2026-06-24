@@ -922,15 +922,15 @@ const ErrorsView = () => {
   return (
   <div className="dashboard-grid">
     <XCard title="报错率" value="4.2%"
-      tip="报错请求数占总请求数的比例,反映服务整体稳定性。"
-      models="文本 + 多模态全部模型的 API 请求"
+      tip="报错请求数 ÷ 总请求数，反映服务整体稳定性。"
+      modalities={['T', 'I', 'A', 'V']}
       extra={rate.extra} control={rate.control}>
       {rate.chart}
       {rate.modal}
     </XCard>
     <XCard title="报错数量" value="850"
-      tip="按 HTTP 状态码 (429 限流 / 500 服务端 / 401 鉴权) 堆叠展示的报错次数。"
-      models="文本 + 多模态全部模型的 API 请求">
+      tip="报错次数，按 HTTP 状态码（429 限流 / 500 服务端 / 401 鉴权）堆叠展示。"
+      modalities={['T', 'I', 'A', 'V']}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
