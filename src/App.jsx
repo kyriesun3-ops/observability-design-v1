@@ -180,6 +180,17 @@ const consumeRankData = [
   { key: 'k7', apiKey: 'sk-...i9j0', user: 'usr_hr_02', tokens: 6_400_000, media: 95, cost: 480.40 },
 ];
 
+// --- 消耗分析: 终端用户消耗 (请求级 user_id, 与 API Key 为多对多) ---
+// 来源为调用请求上报的 user 参数, 非租户账号成员; 同一终端用户可经过多个 Key,
+// 故此处只展示「涉及 Key 数」而非单一归属, 用于转售 / 按客户分摊场景。
+const endUserRankData = [
+  { key: 'e1', endUser: 'u_8f3a2c', keyCount: 3, requests: 12840, tokens: 18_600_000, cost: 1480.20 },
+  { key: 'e2', endUser: 'u_2b71e9', keyCount: 2, requests: 9620, tokens: 14_200_000, cost: 1120.50 },
+  { key: 'e3', endUser: 'u_c4d017', keyCount: 4, requests: 7350, tokens: 9_800_000, cost: 860.30 },
+  { key: 'e4', endUser: 'u_55ab8f', keyCount: 1, requests: 5210, tokens: 6_400_000, cost: 540.80 },
+  { key: 'e5', endUser: 'u_9e02d1', keyCount: 2, requests: 3180, tokens: 4_100_000, cost: 360.40 },
+];
+
 
 const COLORS = {
   blue: '#1677ff',
@@ -384,7 +395,7 @@ const CostView = () => {
   const rangeLabel = useContext(TimeRangeContext);
   const [provMetric, setProvMetric] = useState('cost'); // cost | tokens
   const [modelMetric, setModelMetric] = useState('cost');
-  const [rankDim, setRankDim] = useState('user'); // user | apiKey —— 排行维度 (用户↔Key 为一对多, 分开看)
+  const [rankDim, setRankDim] = useState('apiKey'); // apiKey | member | enduser —— 排行维度
 
   // 消耗概览聚合
   const totalReq = dailyData.reduce((s, d) => s + d.requests, 0);
