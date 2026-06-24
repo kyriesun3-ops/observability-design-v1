@@ -901,8 +901,8 @@ const CacheSavingsCard = () => {
   const savings = useBreakdown({ totalData: dailyData, totalKey: 'savings', totalName: '节省成本', totalColor: COLORS.green, byModel: cacheSavingsByModel, agg: 'sum', unit: ' 元', yTickFormatter: v => '¥' + v, modalTitle: '缓存节省成本 · 按模型明细', valueFmt: v => fmtCNY(v) });
   return (
     <XCard title="缓存节省成本" value={fmtCNY(totalSavings)}
-      tip="缓存命中的请求免去了真实模型调用，按其原应产生的费用估算累计节省金额。"
-      models="文本模型(命中缓存复用的请求)"
+      tip="命中缓存的请求免去了真实模型调用，按其原本应产生的费用估算出的累计节省金额。"
+      modalities={['T']}
       extra={savings.extra} control={savings.control}>
       {savings.chart}
       {savings.modal}
