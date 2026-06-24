@@ -239,17 +239,38 @@ const FilterContext = createContext([]);
 // 全局筛选：完整 chip 列表 [{key,value}]，驱动消耗排行等按 model/user/apiKey/provider 过滤
 const FiltersContext = createContext([]);
 
-const XCard = ({ title, value, subtitle, tip, models, extra, control, children }) => {
+// --- 模态图标 (单色扁平，继承文字色)：浮窗内「涉及模型」改为图标呈现 ---
+const M_GLYPH = {
+  T: <path d="M4 7h16M12 7v11" />,
+  I: <g><rect x="3" y="4.5" width="18" height="15" rx="2" /><circle cx="8.5" cy="10" r="1.5" /><path d="M3 16.5l5-4 4 3 3-2 6 5" /></g>,
+  A: <g><path d="M4 9.5v5h3.5L12 18V6L7.5 9.5H4z" /><path d="M16 9.2a4 4 0 010 5.6" /></g>,
+  V: <g><rect x="2.5" y="6.5" width="13" height="11" rx="2" /><path d="M15.5 10l6-2.5v9l-6-2.5" /></g>,
+};
+const MIcon = ({ type, size = 15 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'text-bottom' }} aria-hidden="true">
+    {M_GLYPH[type]}
+  </svg>
+);
+// value: ['T','I','A','V'] (覆盖范围) 或 { in:['T'], out:'I' } (输入 → 输出)
+const Modalities = ({ value }) => {
+  const arrow = <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#94a3b8', verticalAlign: 'text-bottom' }} aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+      <span style={{ color: '#64748b', fontSize: '12px' }}>涉及</span>
+      {Array.isArray(value)
+        ? value.map(k => <MIcon key={k} type={k} />)
+        : <>{value.in.map(k => <MIcon key={k} type={k} />)}{arrow}<MIcon type={value.out} /></>}
+    </div>
+  );
+};
+
+const XCard = ({ title, value, subtitle, tip, modalities, extra, control, children }) => {
   const rangeLabel = useContext(TimeRangeContext);
-  const hasHint = tip || models;
+  const hasHint = tip || modalities;
   const hintContent = hasHint ? (
     <div style={{ fontSize: '12px', lineHeight: 1.6, maxWidth: '260px' }}>
-      {tip && <div style={{ marginBottom: models ? '6px' : 0 }}>{tip}</div>}
-      {models && (
-        <div style={{ color: '#94a3b8' }}>
-          <span style={{ color: '#64748b' }}>涉及模型：</span>{models}
-        </div>
-      )}
+      {tip && <div style={{ marginBottom: modalities ? '8px' : 0 }}>{tip}</div>}
+      {modalities && <Modalities value={modalities} />}
     </div>
   ) : null;
   return (
