@@ -549,7 +549,7 @@ const CostView = () => {
           hint="账户开通至今在全部模型与服务上的累计扣费总额。为全局累计值，不随时间筛选变化。" />
         <KpiCard label="赠金" value={fmtCNY(bonus)} color={COLORS.orange} hideRange
           icon={<SafetyCertificateOutlined style={{ fontSize: '20px', color: COLORS.orange }} />}
-          hint="平台赠送的代金额度，优先于充值余额抵扣消费；为全局余额。" />
+          hint="平台赠送的代金余额，消费时优先于充值余额抵扣。为全局余额，不随时间筛选变化。" />
       </div>
 
       {/* 消耗概览：请求数 / 总Token / 图片生成 / 视频生成 —— 卡内文案改为迷你趋势图 (deepseek API platform 风格) */}
