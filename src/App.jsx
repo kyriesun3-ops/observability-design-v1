@@ -645,8 +645,8 @@ const CostView = () => {
       {/* 用量汇总 + 消费汇总 */}
       <div className="dashboard-grid">
         <XCard title="用量汇总" value={fmtM(totalToken)} subtitle="时间段内 Token 用量走势 (输入/缓存/输出)"
-          tip="按时间展示 Token 用量,堆叠呈现输入、缓存、输出三类 Token 的消耗量。"
-          models="文本 + 多模态(图像/音频/视频)全部模型">
+          tip="所选时间范围内 Token 用量的每日走势，按输入、缓存、输出三类堆叠展示。"
+          modalities={['T', 'I', 'A', 'V']}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
