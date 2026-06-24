@@ -1399,8 +1399,8 @@ const FILTER_DIMENSIONS = [
 const FILTER_VALUE_OPTIONS = {
   model: [...ALL_MODELS.map(m => m.name), ...ALL_GEN_MODEL_NAMES],
   provider: ['OpenAI', 'Anthropic', 'Google', '通义千问', 'Meta (Groq)'],
-  apiKey: ['sk-...a1b2', 'sk-...a1f9', 'sk-...c3d4', 'sk-...e5f6', 'sk-...k1l2', 'sk-...g7h8', 'sk-...i9j0'],
-  user: ['usr_rd_01', 'usr_rd_07', 'usr_mkt_05', 'usr_ops_12', 'usr_hr_02'],
+  apiKey: ['sk-...a1b2', 'sk-...a1f9', 'sk-...c3d4', 'sk-...e5f6', 'sk-...k1l2', 'sk-...g7h8', 'sk-...i9j0', 'sk-...m2n4', 'sk-...p5q6', 'sk-...r7s8', 'sk-...t9u0'],
+  user: ['usr_rd_01', 'usr_rd_07', 'usr_mkt_05', 'usr_ops_12', 'usr_hr_02', 'usr_fin_03', 'usr_dsn_08', 'usr_dat_11'],
   status: ['200 成功', '429 限流', '500 服务端', '401 鉴权'],
   cache: ['命中', '未命中'],
   resource: ['Desk · GPU 型', 'Desk · 标准型', 'Desk · 高内存型'],
