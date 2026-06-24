@@ -945,8 +945,8 @@ const ErrorsView = () => {
       </ResponsiveContainer>
     </XCard>
     <XCard title="报错类型分布" value="5 类"
-      tip="按错误类型对报错请求归类,定位主要故障来源。"
-      models="文本 + 多模态全部模型的 API 请求">
+      tip="将报错请求按错误类型归类，帮助快速定位主要故障来源。"
+      modalities={['T', 'I', 'A', 'V']}>
       <div style={{ display: 'flex', height: '100%' }}>
         <div style={{ flex: 1, position: 'relative' }}>
           <ResponsiveContainer width="100%" height="100%">
@@ -978,8 +978,8 @@ const ErrorsView = () => {
 // 挽救请求数卡 (抽为组件，供报错分析 Tab 与总览复用)
 const RescuedCard = () => (
   <XCard title="挽救请求数" value="120"
-    tip="通过自动重试 / 故障转移成功挽回的报错请求数,反映容错能力。"
-    models="文本 + 多模态全部模型的 API 请求">
+    tip="通过自动重试 / 故障转移成功挽回的报错请求数，反映系统容错能力。"
+    modalities={['T', 'I', 'A', 'V']}>
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={dailyData.map(d => ({ ...d, rescued: 0 }))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
