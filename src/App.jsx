@@ -540,13 +540,13 @@ const CostView = () => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '24px' }}>
         <KpiCard label="可用额度" value={fmtCNY(available)} color={COLORS.green} hideRange
           icon={<CreditCardOutlined style={{ fontSize: '20px', color: COLORS.green }} />}
-          hint="可用额度 = 累计充值 + 赠金 − 累计消费，为账户实时余额，不随时间筛选变化。" />
+          hint="当前可继续消费的余额 = 累计充值 + 赠金 − 累计消费。为账户实时余额，不随时间筛选变化。" />
         <KpiCard label="累计充值" value={fmtCNY(cumRecharge)} color={COLORS.textMain} hideRange
           icon={<ThunderboltOutlined style={{ fontSize: '20px', color: COLORS.blue }} />}
-          hint="账户开通以来通过付费充值累计到账的金额，不含赠金；为全局累计值。" />
+          hint="账户开通至今的付费充值到账总额（不含赠金）。为全局累计值，不随时间筛选变化。" />
         <KpiCard label="累计消费" value={fmtCNY(cumConsume)} color={COLORS.textMain} hideRange
           icon={<DashboardOutlined style={{ fontSize: '20px', color: COLORS.purple }} />}
-          hint="账户开通以来在全部模型与服务上累计扣费的金额；为全局累计值。" />
+          hint="账户开通至今在全部模型与服务上的累计扣费总额。为全局累计值，不随时间筛选变化。" />
         <KpiCard label="赠金" value={fmtCNY(bonus)} color={COLORS.orange} hideRange
           icon={<SafetyCertificateOutlined style={{ fontSize: '20px', color: COLORS.orange }} />}
           hint="平台赠送的代金额度，优先于充值余额抵扣消费；为全局余额。" />
