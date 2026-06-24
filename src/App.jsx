@@ -656,26 +656,32 @@ const CostView = () => {
           models="文本 + 多模态全部模型,按模型聚合" />
       </div>
 
-      {/* 消耗排行 —— 部门/用户/API Key 三维度 · 费用/Token · 排行榜/占比图 */}
+      {/* 消耗排行 —— 可下钻 (部门 → 用户 → API Key) · 费用/Token */}
       <div className="portkey-card" style={{ height: 'auto', padding: '20px 24px 24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>层级为 部门 ⊃ 用户 ⊃ API Key（均多对一：1 个 Key 仅归属 1 个用户、1 个用户归属 1 个部门）。可在三维度与 费用/Token 间切换，按消耗从高到低。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：文本 + 多模态全部模型</div></div>} placement="top">
+          <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>层级为 部门 ⊃ 用户 ⊃ API Key（均多对一）。点击条目可逐层下钻 (部门→用户→Key)，或用右侧切换直接跳到某一粒度的全局排行。按消耗从高到低。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：文本 + 多模态全部模型</div></div>} placement="top">
             <span className="card-title-hint" style={{ fontSize: '13px', fontWeight: 500, color: '#64748b' }}>消耗排行</span>
           </ATooltip>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {segmented([['dept', '部门'], ['member', '用户'], ['apiKey', 'API Key']], rankDim, setRankDim)}
+            {segmented([['dept', '部门'], ['member', '用户'], ['apiKey', 'API Key']], rankLevel, jumpLevel)}
             {segmented([['cost', '费用'], ['tokens', 'Token']], rankMetric, setRankMetric)}
           </div>
         </div>
-        <div style={{ fontSize: '12px', color: COLORS.textLight, margin: '8px 0 0', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <span>
-            {rankDim === 'dept' ? '按部门聚合其名下全部用户与 API Key 的消耗。'
-              : rankDim === 'member' ? '按用户聚合其名下全部 API Key 的消耗（一个用户可拥有多个 Key）。'
-              : '按 API Key 明细：每行一个 Key，归属唯一用户与部门。'}
-          </span>
+
+        {/* 面包屑 + 当前粒度 + 筛选提示 */}
+        <div style={{ fontSize: '12px', margin: '10px 0 0', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {crumbs.map((c, i) => (
+            <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              {i > 0 && <span style={{ color: COLORS.textLight }}>›</span>}
+              {c.go
+                ? <span onClick={c.go} style={{ color: COLORS.blue, cursor: 'pointer' }}>{c.label}</span>
+                : <span style={{ color: COLORS.textMain, fontWeight: 600 }}>{c.label}</span>}
+            </span>
+          ))}
+          <span style={{ color: COLORS.textLight }}>· 当前按{dimLabel} · {rankData.length} 项{canDrill ? '（点击条目可下钻）' : ''}</span>
           {rankFiltered && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '1px 8px', borderRadius: '10px', background: '#eff6ff', border: '1px solid #bfdbfe', color: COLORS.blue, fontSize: '11px' }}>
-              已按筛选过滤 · {scopedRows.length} 条记录
+              已按筛选过滤 · {scopedRows.length} 条
             </span>
           )}
         </div>
@@ -683,18 +689,19 @@ const CostView = () => {
         {rankData.length === 0 ? (
           <div style={{ padding: '40px 0', textAlign: 'center', color: COLORS.textLight, fontSize: '13px' }}>当前筛选条件下暂无消耗数据</div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '18px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '11px', marginTop: '16px' }}>
             {rankTop.map((d, i) => {
               const v = d[rankMetric];
               const pct = rankMax ? (v / rankMax) * 100 : 0;
               const share = (v / rankTotal) * 100;
               const col = deptColor(d.dept);
-              const isKey = rankDim === 'apiKey';
-              const sub = rankDim === 'dept' ? `${d.userCount} 名用户 · ${d.keyCount} 个 Key`
-                : rankDim === 'member' ? `${d.dept} · ${d.keyCount} 个 Key`
+              const isKey = rankLevel === 'apiKey';
+              const sub = rankLevel === 'dept' ? `${d.userCount} 名用户 · ${d.keyCount} 个 Key`
+                : rankLevel === 'member' ? `${d.dept} · ${d.keyCount} 个 Key`
                 : `${d.dept} · ${d.user}`;
               return (
-                <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div key={d.id} className={'rank-row' + (canDrill ? ' drillable' : '')} onClick={canDrill ? () => drillInto(d) : undefined}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <span style={{ width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, background: i < 3 ? col : '#f1f5f9', color: i < 3 ? '#fff' : COLORS.textLight }}>{i + 1}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px', gap: '12px' }}>
@@ -708,12 +715,13 @@ const CostView = () => {
                       <div style={{ height: '100%', width: `${pct}%`, borderRadius: '4px', background: col, transition: 'width .3s' }} />
                     </div>
                   </div>
+                  {canDrill && <span style={{ flexShrink: 0, color: COLORS.textLight, fontSize: '16px', lineHeight: 1 }}>›</span>}
                 </div>
               );
             })}
             {/* 其他项合计 (长尾收敛为一条) */}
             {rankRest.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 8px', margin: '0 -8px' }}>
                 <span style={{ width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, background: '#f1f5f9', color: COLORS.textLight }}>…</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px', gap: '12px' }}>
@@ -730,7 +738,7 @@ const CostView = () => {
         )}
 
         {/* 底部：部门图例 + 查看全部 */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '18px' }}>
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
             {Object.entries(DEPT_COLORS).map(([d, c]) => (
               <span key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: COLORS.textLight }}>
