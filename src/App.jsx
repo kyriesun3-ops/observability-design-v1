@@ -739,7 +739,7 @@ const CostView = () => {
               </span>
             ))}
           </div>
-          {rankData.length > 0 && (
+          {rankData.length > RANK_TOP_N && (
             <span onClick={() => setRankOpen(true)} style={{ fontSize: '12px', color: COLORS.blue, cursor: 'pointer', fontWeight: 500 }}>
               查看全部 {rankData.length} 项 →
             </span>
