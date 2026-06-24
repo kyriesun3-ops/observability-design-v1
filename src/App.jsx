@@ -623,7 +623,7 @@ const CostView = () => {
         {/* 视频生成 —— 成功/失败 堆叠迷你柱 */}
         <div className="portkey-card overview-stat">
           <div className="overview-stat-head">
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间窗口内的视频生成任务数,拆分为成功与失败。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：视频生成模型(文生视频/视频理解)</div></div>} placement="top">
+            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间范围内的视频生成任务数，按成功与失败拆分。<div style={{ marginTop: '8px' }}><Modalities value={{ in: ['T'], out: 'V' }} /></div></div>} placement="top">
               <span className="overview-stat-label card-title-hint">视频生成</span>
             </ATooltip>
             <span className="overview-stat-value">{totalVideo.toLocaleString()}</span>
