@@ -1,7 +1,7 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Treemap
 } from 'recharts';
 import { ThunderboltOutlined, WarningOutlined, SafetyCertificateOutlined,
   DashboardOutlined, PlaySquareOutlined, DesktopOutlined,
