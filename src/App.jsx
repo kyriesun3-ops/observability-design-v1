@@ -391,7 +391,8 @@ const CostView = () => {
   const [modelMetric, setModelMetric] = useState('cost');
   const [rankDim, setRankDim] = useState('dept');    // dept | member | apiKey —— 排行维度
   const [rankMetric, setRankMetric] = useState('cost'); // cost | tokens
-  const [rankView, setRankView] = useState('bar');   // bar(排行榜) | tree(占比图)
+  const [rankOpen, setRankOpen] = useState(false);   // 查看全部 弹窗
+  const activeFilters = useContext(FiltersContext);  // 全局筛选 chip，驱动排行联动过滤
 
   // 消耗概览聚合
   const totalReq = dailyData.reduce((s, d) => s + d.requests, 0);
