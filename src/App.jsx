@@ -418,8 +418,18 @@ const CostView = () => {
   const provData = [...providerSpendData].sort((a, b) => b[provMetric] - a[provMetric]);
   const modelData = [...modelSpendData].sort((a, b) => b[modelMetric] - a[modelMetric]);
 
-  // 消耗排行：层级 部门 ⊃ 用户 ⊃ API Key（均多对一）。三维度 + 费用/Token + 排行榜/占比图。
-  const aggRank = (idFn) => Object.values(consumeRankData.reduce((m, r) => {
+  // 消耗排行：层级 部门 ⊃ 用户 ⊃ API Key（均多对一）。三维度 + 费用/Token。
+  // 受全局筛选联动：按 model / user / apiKey / provider 过滤参与排行的消耗记录 (同维度 OR，跨维度 AND)。
+  const RANK_FIELDS = { model: 'model', user: 'user', apiKey: 'apiKey', provider: 'provider' };
+  const filterGroups = activeFilters.reduce((m, f) => {
+    if (RANK_FIELDS[f.key]) (m[f.key] = m[f.key] || []).push(f.value);
+    return m;
+  }, {});
+  const rankFiltered = Object.keys(filterGroups).length > 0;
+  const scopedRows = consumeRankData.filter(r =>
+    Object.entries(filterGroups).every(([k, vals]) => vals.includes(r[RANK_FIELDS[k]])));
+
+  const aggRank = (idFn) => Object.values(scopedRows.reduce((m, r) => {
     const id = idFn(r);
     if (!m[id]) m[id] = { id, name: id, dept: r.dept, tokens: 0, cost: 0, _keys: new Set(), _users: new Set() };
     const o = m[id];
@@ -428,13 +438,18 @@ const CostView = () => {
   }, {})).map(o => ({ ...o, keyCount: o._keys.size, userCount: o._users.size }));
   const byDept = aggRank(r => r.dept);
   const byMember = aggRank(r => r.user);
-  const byKey = consumeRankData.map(r => ({ id: r.apiKey, name: r.apiKey, dept: r.dept, user: r.user, tokens: r.tokens, cost: r.cost }));
+  const byKey = scopedRows.map(r => ({ id: r.apiKey, name: r.apiKey, dept: r.dept, user: r.user, tokens: r.tokens, cost: r.cost }));
   const rankSrc = rankDim === 'dept' ? byDept : rankDim === 'member' ? byMember : byKey;
   const rankData = [...rankSrc].sort((a, b) => b[rankMetric] - a[rankMetric]);
+  const RANK_TOP_N = 5;
+  const rankTop = rankData.slice(0, RANK_TOP_N);
+  const rankRest = rankData.slice(RANK_TOP_N);
+  const restTotal = rankRest.reduce((s, d) => s + d[rankMetric], 0);
   const rankMax = rankData.length ? rankData[0][rankMetric] : 1;
   const rankTotal = rankData.reduce((s, d) => s + d[rankMetric], 0) || 1;
   const metricFmt = (v) => rankMetric === 'cost' ? fmtCNY(v) : fmtM(v);
   const deptColor = (d) => DEPT_COLORS[d] || COLORS.blue;
+  const dimLabel = { dept: '部门', member: '用户', apiKey: 'API Key' }[rankDim];
   const segmented = (opts, val, set, ac = COLORS.blue) => (
     <div style={{ display: 'flex', border: `1px solid ${COLORS.gray}`, borderRadius: '6px', overflow: 'hidden', fontSize: '12px' }}>
       {opts.map(([k, lbl]) => (
@@ -442,6 +457,18 @@ const CostView = () => {
       ))}
     </div>
   );
+  const rankModalCols = [
+    { title: '排名', key: 'rank', width: 56, render: (_t, _r, i) => <span style={{ fontWeight: 600, color: i < 3 ? COLORS.orange : COLORS.textMain }}>{i + 1}</span> },
+    rankDim === 'apiKey'
+      ? { title: 'API Key', dataIndex: 'name', key: 'name', render: t => <span style={{ fontFamily: 'monospace', color: COLORS.blue }}>{t}</span> }
+      : { title: dimLabel, dataIndex: 'name', key: 'name', render: t => <span style={{ fontWeight: 500 }}>{t}</span> },
+    { title: '部门', dataIndex: 'dept', key: 'dept', render: t => <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><span style={{ width: 7, height: 7, borderRadius: 2, background: deptColor(t) }} />{t}</span> },
+    ...(rankDim === 'apiKey'
+      ? [{ title: '所属用户', dataIndex: 'user', key: 'user' }]
+      : [{ title: 'API Key 数', dataIndex: 'keyCount', key: 'keyCount', align: 'right', render: v => v + ' 个' }]),
+    { title: 'Token', dataIndex: 'tokens', key: 'tokens', align: 'right', sorter: (a, b) => a.tokens - b.tokens, render: t => fmtM(t) },
+    { title: '费用', dataIndex: 'cost', key: 'cost', align: 'right', sorter: (a, b) => a.cost - b.cost, defaultSortOrder: 'descend', render: t => <span style={{ color: COLORS.green, fontWeight: 600 }}>{fmtCNY(t)}</span> },
+  ];
 
   // deepseek API platform 风格：概览卡内嵌迷你趋势图所需的逐日序列 (图片/视频按 成功·失败 拆分)
   const imgDaily = dailyData.map(d => ({ date: d.date, ok: d.mmImageReq, fail: Math.max(1, Math.round(d.mmImageReq * 0.02)) }));
