@@ -400,7 +400,9 @@ const CostView = () => {
   const rangeLabel = useContext(TimeRangeContext);
   const [provMetric, setProvMetric] = useState('cost'); // cost | tokens
   const [modelMetric, setModelMetric] = useState('cost');
-  const [rankDim, setRankDim] = useState('apiKey'); // apiKey | member | enduser —— 排行维度
+  const [rankDim, setRankDim] = useState('dept');    // dept | member | apiKey —— 排行维度
+  const [rankMetric, setRankMetric] = useState('cost'); // cost | tokens
+  const [rankView, setRankView] = useState('bar');   // bar(排行榜) | tree(占比图)
 
   // 消耗概览聚合
   const totalReq = dailyData.reduce((s, d) => s + d.requests, 0);
@@ -426,45 +428,30 @@ const CostView = () => {
   const provData = [...providerSpendData].sort((a, b) => b[provMetric] - a[provMetric]);
   const modelData = [...modelSpendData].sort((a, b) => b[modelMetric] - a[modelMetric]);
 
-  // 消耗排行：三个维度，「成员/Key」为可治理实体(主)，「终端用户」为请求级身份(次)
-  //   · 按 API Key = Key 级明细 + 所属成员 (Key→成员 多对一，不歧义) —— 治理/限额单元
-  //   · 按成员    = 聚合该成员名下全部 Key 的 token/费用 —— 问责/分摊单元
-  //   · 按终端用户 = 请求级 user_id (与 Key 多对多)，展示涉及 Key 数 —— 转售/按客户分摊场景
-  const rankByKey = [...consumeRankData].sort((a, b) => b.cost - a.cost);
-  const rankByMember = Object.values(
-    consumeRankData.reduce((m, r) => {
-      const u = m[r.user] || (m[r.user] = { key: r.user, user: r.user, keyCount: 0, tokens: 0, cost: 0 });
-      u.keyCount += 1; u.tokens += r.tokens; u.cost += r.cost;
-      return m;
-    }, {})
-  ).sort((a, b) => b.cost - a.cost);
-  const rankByEndUser = [...endUserRankData].sort((a, b) => b.cost - a.cost);
-  const rankData = rankDim === 'member' ? rankByMember : rankDim === 'enduser' ? rankByEndUser : rankByKey;
-
-  const rankIndexCol = { title: '排名', key: 'rank', width: 60, render: (_t, _r, i) => <span style={{ fontWeight: 600, color: i < 3 ? COLORS.orange : COLORS.textMain }}>{i + 1}</span> };
-  const tokenCol = { title: 'Token', dataIndex: 'tokens', key: 'tokens', align: 'right', sorter: (a, b) => a.tokens - b.tokens, render: t => fmtM(t) };
-  const costCol = { title: '费用', dataIndex: 'cost', key: 'cost', align: 'right', sorter: (a, b) => a.cost - b.cost, defaultSortOrder: 'descend', render: t => <span style={{ color: COLORS.green, fontWeight: 600 }}>{fmtCNY(t)}</span> };
-  const rankColumns = rankDim === 'member'
-    ? [
-        rankIndexCol,
-        { title: '成员', dataIndex: 'user', key: 'user', render: t => <span style={{ fontWeight: 500, color: COLORS.textMain }}>{t}</span> },
-        { title: 'API Key 数', dataIndex: 'keyCount', key: 'keyCount', align: 'right', render: v => <span style={{ color: COLORS.textLight }}>{v} 个</span> },
-        tokenCol, costCol,
-      ]
-    : rankDim === 'enduser'
-    ? [
-        rankIndexCol,
-        { title: '终端用户', dataIndex: 'endUser', key: 'endUser', render: t => <span style={{ fontFamily: 'monospace', color: COLORS.purple }}>{t}</span> },
-        { title: '涉及 Key 数', dataIndex: 'keyCount', key: 'keyCount', align: 'right', render: v => <span style={{ color: COLORS.textLight }}>{v} 个</span> },
-        { title: '请求数', dataIndex: 'requests', key: 'requests', align: 'right', sorter: (a, b) => a.requests - b.requests, render: v => v.toLocaleString() },
-        tokenCol, costCol,
-      ]
-    : [
-        rankIndexCol,
-        { title: 'API Key', dataIndex: 'apiKey', key: 'apiKey', render: t => <span style={{ fontFamily: 'monospace', color: COLORS.blue }}>{t}</span> },
-        { title: '所属成员', dataIndex: 'user', key: 'user' },
-        tokenCol, costCol,
-      ];
+  // 消耗排行：层级 部门 ⊃ 用户 ⊃ API Key（均多对一）。三维度 + 费用/Token + 排行榜/占比图。
+  const aggRank = (idFn) => Object.values(consumeRankData.reduce((m, r) => {
+    const id = idFn(r);
+    if (!m[id]) m[id] = { id, name: id, dept: r.dept, tokens: 0, cost: 0, _keys: new Set(), _users: new Set() };
+    const o = m[id];
+    o.tokens += r.tokens; o.cost += r.cost; o._keys.add(r.apiKey); o._users.add(r.user);
+    return m;
+  }, {})).map(o => ({ ...o, keyCount: o._keys.size, userCount: o._users.size }));
+  const byDept = aggRank(r => r.dept);
+  const byMember = aggRank(r => r.user);
+  const byKey = consumeRankData.map(r => ({ id: r.apiKey, name: r.apiKey, dept: r.dept, user: r.user, tokens: r.tokens, cost: r.cost }));
+  const rankSrc = rankDim === 'dept' ? byDept : rankDim === 'member' ? byMember : byKey;
+  const rankData = [...rankSrc].sort((a, b) => b[rankMetric] - a[rankMetric]);
+  const rankMax = rankData.length ? rankData[0][rankMetric] : 1;
+  const rankTotal = rankData.reduce((s, d) => s + d[rankMetric], 0) || 1;
+  const metricFmt = (v) => rankMetric === 'cost' ? fmtCNY(v) : fmtM(v);
+  const deptColor = (d) => DEPT_COLORS[d] || COLORS.blue;
+  const segmented = (opts, val, set, ac = COLORS.blue) => (
+    <div style={{ display: 'flex', border: `1px solid ${COLORS.gray}`, borderRadius: '6px', overflow: 'hidden', fontSize: '12px' }}>
+      {opts.map(([k, lbl]) => (
+        <span key={k} onClick={() => set(k)} style={{ padding: '3px 10px', cursor: 'pointer', whiteSpace: 'nowrap', background: val === k ? ac : '#fff', color: val === k ? '#fff' : '#64748b' }}>{lbl}</span>
+      ))}
+    </div>
+  );
 
   // deepseek API platform 风格：概览卡内嵌迷你趋势图所需的逐日序列 (图片/视频按 成功·失败 拆分)
   const imgDaily = dailyData.map(d => ({ date: d.date, ok: d.mmImageReq, fail: Math.max(1, Math.round(d.mmImageReq * 0.02)) }));
