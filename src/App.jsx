@@ -1533,6 +1533,7 @@ const App = () => {
   return (
     <TimeRangeContext.Provider value={rangeLabel}>
       <FilterContext.Provider value={activeModels}>
+      <FiltersContext.Provider value={filters}>
       <div className="layout-shell">
         {/* Sidebar */}
         <aside className="layout-sidebar">
