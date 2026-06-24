@@ -697,7 +697,7 @@ const CostView = () => {
       {/* 消耗排行 —— 可下钻 (部门 → 用户 → API Key) · 费用/Token */}
       <div className="portkey-card" style={{ height: 'auto', padding: '20px 24px 24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>层级为 部门 ⊃ 用户 ⊃ API Key（均多对一）。点击条目可逐层下钻 (部门→用户→Key)，或用右侧切换直接跳到某一粒度的全局排行。按消耗从高到低。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：文本 + 多模态全部模型</div></div>} placement="top">
+          <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>按部门 / 用户 / API Key 三个层级看消耗排行（层级为 部门 ⊃ 用户 ⊃ API Key，逐级一对多）。点击任意条目可下钻到下一层级，也可用右上切换直接查看某一层级的全量排行；默认按消耗从高到低。<div style={{ marginTop: '8px' }}><Modalities value={['T', 'I', 'A', 'V']} /></div></div>} placement="top">
             <span className="card-title-hint" style={{ fontSize: '13px', fontWeight: 500, color: '#64748b' }}>消耗排行</span>
           </ATooltip>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -886,8 +886,8 @@ const CacheHitCard = () => {
           <span style={{ fontSize: '14px', fontWeight: 500, color: COLORS.textLight }}>命中率 {hitRate}%</span>
         </span>
       }
-      tip="缓存命中节省的 Token 总量与命中率;曲线展示缓存命中token数走势。命中越多、命中率越高，越能降低重复推理成本。"
-      models="文本模型(命中缓存复用的输入/输出 Token)"
+      tip="因命中缓存而复用的 Token 总量与命中率；曲线为其每日走势。命中越多、命中率越高，越能省下重复推理的成本。"
+      modalities={['T']}
       extra={hits.extra} control={hits.control}>
       {hits.chart}
       {hits.modal}
