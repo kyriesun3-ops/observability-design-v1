@@ -662,8 +662,8 @@ const CostView = () => {
         </XCard>
 
         <XCard title="消费汇总" value={fmtCNY(totalSpend)} subtitle="时间段内消费金额走势"
-          tip="按时间展示账户消费金额走势,反映各日实际扣费情况。"
-          models="文本 + 多模态(图像/音频/视频)全部模型">
+          tip="所选时间范围内消费金额的每日走势，反映各日实际扣费。"
+          modalities={['T', 'I', 'A', 'V']}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
