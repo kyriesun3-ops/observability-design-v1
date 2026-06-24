@@ -582,7 +582,7 @@ const CostView = () => {
         {/* 总 Token —— 输入/缓存/输出 堆叠迷你柱，明细见浮窗 */}
         <div className="portkey-card overview-stat">
           <div className="overview-stat-head">
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间窗口内的 Token 消耗总量,拆分为输入、缓存、输出三部分。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：文本 + 多模态全部模型</div></div>} placement="top">
+            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间范围内的 Token 消耗总量，按输入、缓存、输出三部分拆分。<div style={{ marginTop: '8px' }}><Modalities value={['T', 'I', 'A', 'V']} /></div></div>} placement="top">
               <span className="overview-stat-label card-title-hint">总 token</span>
             </ATooltip>
             <span className="overview-stat-value">{fmtM(totalToken)}</span>
@@ -603,7 +603,7 @@ const CostView = () => {
         {/* 图片生成 —— 成功/失败 堆叠迷你柱 */}
         <div className="portkey-card overview-stat">
           <div className="overview-stat-head">
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间窗口内的图片生成任务数,拆分为成功与失败。<div style={{ color: '#94a3b8', marginTop: '6px' }}>涉及模型：图像生成模型(文生图/图生图)</div></div>} placement="top">
+            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间范围内的图片生成任务数，按成功与失败拆分。<div style={{ marginTop: '8px' }}><Modalities value={{ in: ['T'], out: 'I' }} /></div></div>} placement="top">
               <span className="overview-stat-label card-title-hint">图片生成</span>
             </ATooltip>
             <span className="overview-stat-value">{totalImg.toLocaleString()}</span>
