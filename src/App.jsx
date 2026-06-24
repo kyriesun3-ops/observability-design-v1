@@ -1059,8 +1059,8 @@ const Seg = ({ options, value, onChange }) => (
 // 整合卡片①：多模态调用量 + 跨模态模型调用排行（按模态趋势 ⇄ 模型排行，排行可展开看全量）
 const MmCallCard = () => (
   <XCard title="多模态调用量" value="12,480 次"
-    tip="按模态 (图像/音频/视频) 堆叠统计的多模态请求次数，跨模态归一化为「次」。"
-    models="多模态模型：图像(文生图/图生图)、音频(TTS/STT)、视频(文生视频/视频理解)">
+    tip="多模态请求次数，按模态（图像/音频/视频）堆叠统计，跨模态统一以「次」计。"
+    modalities={['I', 'A', 'V']}>
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
