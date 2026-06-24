@@ -196,7 +196,7 @@ const COLORS = {
 const PIE_COLORS = [COLORS.red, COLORS.orange, COLORS.blue, COLORS.purple, COLORS.cyan];
 
 // 部门配色 (消耗排行：部门/用户/Key 三维度统一按部门着色)
-const DEPT_COLORS = { '研发': COLORS.blue, '市场': COLORS.purple, '运营': COLORS.cyan, '人力': COLORS.orange };
+const DEPT_COLORS = { '研发': COLORS.blue, '市场': COLORS.purple, '运营': COLORS.cyan, '人力': COLORS.orange, '财务': COLORS.green, '设计': COLORS.red, '数据': '#0ea5e9' };
 
 // OpenRouter 风格：鼠标跟随的垂直参考线 (细实线) 与折线高亮圆点
 const CROSSHAIR = { stroke: '#cbd5e1', strokeWidth: 1 };
