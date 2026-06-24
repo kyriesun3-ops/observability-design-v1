@@ -389,7 +389,8 @@ const CostView = () => {
   const rangeLabel = useContext(TimeRangeContext);
   const [provMetric, setProvMetric] = useState('cost'); // cost | tokens
   const [modelMetric, setModelMetric] = useState('cost');
-  const [rankDim, setRankDim] = useState('dept');    // dept | member | apiKey —— 排行维度
+  const [rankLevel, setRankLevel] = useState('dept'); // dept | member | apiKey —— 当前粒度
+  const [rankParent, setRankParent] = useState(null); // 下钻上下文 {type:'dept'|'member', value, dept?}
   const [rankMetric, setRankMetric] = useState('cost'); // cost | tokens
   const [rankOpen, setRankOpen] = useState(false);   // 查看全部 弹窗
   const activeFilters = useContext(FiltersContext);  // 全局筛选 chip，驱动排行联动过滤
