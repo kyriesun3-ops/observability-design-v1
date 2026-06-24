@@ -803,7 +803,7 @@ const CostView = () => {
 };
 
 // 分布卡片：服务商/模型通用,支持费用(¥)/Token 切换
-const DistributionCard = ({ title, metric, setMetric, data, tip, models }) => {
+const DistributionCard = ({ title, metric, setMetric, data, tip, modalities }) => {
   const rangeLabel = useContext(TimeRangeContext);
   const total = data.reduce((s, d) => s + d[metric], 0);
   const fmtVal = (v) => metric === 'cost' ? fmtCNY(v) : fmtM(v);
