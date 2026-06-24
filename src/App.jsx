@@ -684,6 +684,8 @@ const CostView = () => {
             {segmented([['cost', '费用'], ['tokens', 'Token']], rankMetric, setRankMetric)}
           </div>
         </div>
+        {/* 时间戳：跟随全局时间筛选 */}
+        <div style={{ fontSize: '11px', color: COLORS.textLight, marginTop: '4px' }}>{rangeLabel}</div>
 
         {/* 面包屑 + 当前粒度 + 筛选提示 */}
         <div style={{ fontSize: '12px', margin: '10px 0 0', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -755,11 +757,24 @@ const CostView = () => {
           )}
         </div>
 
-        <Modal open={rankOpen} onCancel={() => setRankOpen(false)} footer={null} width={760} title={`消耗排行 · 按${dimLabel}（全部 ${rankData.length} 项）`}>
+        <Modal open={rankOpen} onCancel={() => { setRankOpen(false); setRankSearch(''); }} footer={null} width={760} title={`消耗排行 · 按${dimLabel}（全部 ${rankData.length} 项）`}>
           <div style={{ fontSize: '12px', color: COLORS.textLight, margin: '4px 0 12px' }}>
-            按{rankMetric === 'cost' ? '费用' : 'Token'}从高到低，可点表头排序{rankFiltered ? '；已按当前全局筛选过滤' : ''}。
+            按{rankMetric === 'cost' ? '费用' : 'Token'}从高到低，可点表头排序{canDrill ? '；点击名称可下钻到下一层级' : ''}{rankFiltered ? '；已按当前全局筛选过滤' : ''}。
           </div>
-          <Table columns={rankModalCols} dataSource={rankData} pagination={{ pageSize: 10, hideOnSinglePage: true }} rowKey="id" size="small" scroll={{ y: 360 }} />
+          <div style={{ position: 'relative', marginBottom: '12px' }}>
+            <SearchOutlined style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: COLORS.textLight }} />
+            <input
+              value={rankSearch}
+              onChange={e => setRankSearch(e.target.value)}
+              placeholder={`搜索${dimLabel}…`}
+              style={{ width: '260px', padding: '6px 10px 6px 30px', border: `1px solid ${COLORS.gray}`, borderRadius: '6px', fontSize: '13px', outline: 'none' }}
+            />
+          </div>
+          {(() => {
+            const q = rankSearch.trim().toLowerCase();
+            const filtered = q ? rankData.filter(d => String(d.name).toLowerCase().includes(q)) : rankData;
+            return <Table columns={rankModalCols} dataSource={filtered} pagination={{ pageSize: 10, hideOnSinglePage: true, showTotal: t => `共 ${t} 项` }} rowKey="id" size="small" scroll={{ y: 340 }} locale={{ emptyText: '无匹配项' }} />;
+          })()}
         </Modal>
       </div>
     </div>
