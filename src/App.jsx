@@ -516,10 +516,10 @@ const CostView = () => {
           hint="账户开通至今的付费充值到账总额（不含赠金）。" />
         <KpiCard label="累计消费" value={fmtCNY(cumConsume)} color={COLORS.textMain} hideRange
           icon={<DashboardOutlined style={{ fontSize: '20px', color: COLORS.purple }} />}
-          hint="账户开通至今的累计扣费总额。计算：全部模型与服务的历次扣费累加（全局值，不随时间筛选变化）。" />
+          hint="账户开通至今的累计扣费总额。" />
         <KpiCard label="赠金" value={fmtCNY(bonus)} color={COLORS.orange} hideRange
           icon={<SafetyCertificateOutlined style={{ fontSize: '20px', color: COLORS.orange }} />}
-          hint="平台赠送的代金余额，消费时优先于充值余额抵扣。计算：累计赠送 − 已用赠金（全局余额，不随时间筛选变化）。" />
+          hint="平台赠送的代金余额，消费时优先于充值余额抵扣。" />
       </div>
 
       {/* 消耗概览：请求数 / 总Token / 图片生成 / 视频生成 —— 卡内文案改为迷你趋势图 (deepseek API platform 风格) */}
