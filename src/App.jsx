@@ -573,7 +573,7 @@ const CostView = () => {
         {/* 图片生成 —— 成功/失败 堆叠迷你柱 */}
         <div className="portkey-card overview-stat">
           <div className="overview-stat-head">
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间范围内的图片生成任务数，分成功/失败。计算：成功与失败任务数按日累加。<div style={{ marginTop: '8px' }}><Modalities value={{ in: ['T'], out: 'I' }} /></div></div>} placement="top">
+            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>图片生成任务数，分成功/失败。<div style={{ marginTop: '8px' }}><Modalities value={{ in: ['T'], out: 'I' }} /></div></div>} placement="top">
               <span className="overview-stat-label card-title-hint">图片生成</span>
             </ATooltip>
             <span className="overview-stat-value">{totalImg.toLocaleString()}</span>
@@ -593,7 +593,7 @@ const CostView = () => {
         {/* 视频生成 —— 成功/失败 堆叠迷你柱 */}
         <div className="portkey-card overview-stat">
           <div className="overview-stat-head">
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间范围内的视频生成任务数，分成功/失败。计算：成功与失败任务数按日累加。<div style={{ marginTop: '8px' }}><Modalities value={{ in: ['T'], out: 'V' }} /></div></div>} placement="top">
+            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>视频生成任务数，分成功/失败。<div style={{ marginTop: '8px' }}><Modalities value={{ in: ['T'], out: 'V' }} /></div></div>} placement="top">
               <span className="overview-stat-label card-title-hint">视频生成</span>
             </ATooltip>
             <span className="overview-stat-value">{totalVideo.toLocaleString()}</span>
