@@ -417,8 +417,6 @@ const CostView = () => {
   const [rankLevel, setRankLevel] = useState('dept'); // dept | member | apiKey —— 当前粒度
   const [rankParent, setRankParent] = useState(null); // 下钻上下文 {type:'dept'|'member', value, dept?}
   const [rankMetric, setRankMetric] = useState('cost'); // cost | tokens
-  const [rankOpen, setRankOpen] = useState(false);   // 查看全部 弹窗
-  const [rankSearch, setRankSearch] = useState('');  // 弹窗内按名称搜索
   const activeFilters = useContext(FiltersContext);  // 全局筛选 chip，驱动排行联动过滤
 
   // 消耗概览聚合
@@ -475,7 +473,6 @@ const CostView = () => {
     : parentRows.map(r => ({ id: r.apiKey, name: r.apiKey, dept: r.dept, user: r.user, tokens: r.tokens, cost: r.cost }));
   const rankData = [...rankSrc].sort((a, b) => b[rankMetric] - a[rankMetric]);
   const RANK_TOP_N = 5;
-  const rankTop = rankData.slice(0, RANK_TOP_N);
   const rankMax = rankData.length ? rankData[0][rankMetric] : 1;
   const rankTotal = rankData.reduce((s, d) => s + d[rankMetric], 0) || 1;
   const metricFmt = (v) => rankMetric === 'cost' ? fmtCNY(v) : fmtM(v);
@@ -503,33 +500,6 @@ const CostView = () => {
       ))}
     </div>
   );
-  const deptDot = (t) => <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><span style={{ width: 7, height: 7, borderRadius: 2, background: deptColor(t) }} />{t}</span>;
-  // 可下钻层级的名称做成链接：点击即从全量列表下钻并关闭弹窗
-  const drillName = (content, record) => canDrill
-    ? <span onClick={() => { drillInto(record); setRankOpen(false); setRankSearch(''); }} style={{ cursor: 'pointer', color: COLORS.blue, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>{content}<span style={{ fontSize: '11px' }}>›</span></span>
-    : content;
-  const rankModalCols = [
-    { title: '排名', key: 'rank', width: 56, render: (_t, _r, i) => <span style={{ fontWeight: 600, color: i < 3 ? COLORS.orange : COLORS.textMain }}>{i + 1}</span> },
-    // 名称列：API Key 层用 Key、用户层用用户名、部门层即部门(带色点，部门层不再单列部门避免重复)
-    rankLevel === 'apiKey'
-      ? { title: 'API Key', dataIndex: 'name', key: 'name', render: t => <span style={{ fontFamily: 'monospace', color: COLORS.blue }}>{t}</span> }
-      : rankLevel === 'member'
-      ? { title: '用户', dataIndex: 'name', key: 'name', render: (t, r) => drillName(<span style={{ fontWeight: 500 }}>{t}</span>, r) }
-      : { title: '部门', dataIndex: 'name', key: 'name', render: (t, r) => drillName(deptDot(t), r) },
-    // 部门列仅在 用户 / API Key 层级出现
-    ...(rankLevel === 'dept' ? [] : [{ title: '部门', dataIndex: 'dept', key: 'dept', render: t => deptDot(t) }]),
-    ...(rankLevel === 'apiKey'
-      ? [{ title: '所属用户', dataIndex: 'user', key: 'user' }]
-      : rankLevel === 'member'
-      ? [{ title: 'API Key 数', dataIndex: 'keyCount', key: 'keyCount', align: 'right', render: v => v + ' 个' }]
-      : [
-          { title: '用户数', dataIndex: 'userCount', key: 'userCount', align: 'right', render: v => v + ' 名' },
-          { title: 'API Key 数', dataIndex: 'keyCount', key: 'keyCount', align: 'right', render: v => v + ' 个' },
-        ]),
-    { title: 'Token', dataIndex: 'tokens', key: 'tokens', align: 'right', sorter: (a, b) => a.tokens - b.tokens, render: t => fmtM(t) },
-    { title: '费用', dataIndex: 'cost', key: 'cost', align: 'right', sorter: (a, b) => a.cost - b.cost, defaultSortOrder: 'descend', render: t => <span style={{ color: COLORS.green, fontWeight: 600 }}>{fmtCNY(t)}</span> },
-  ];
-
   // deepseek API platform 风格：概览卡内嵌迷你趋势图所需的逐日序列 (图片/视频按 成功·失败 拆分)
   const imgDaily = dailyData.map(d => ({ date: d.date, ok: d.mmImageReq, fail: Math.max(1, Math.round(d.mmImageReq * 0.02)) }));
   const videoDaily = dailyData.map(d => ({ date: d.date, ok: d.mmVideoReq, fail: Math.max(1, Math.round(d.mmVideoReq * 0.05)) }));
@@ -540,16 +510,16 @@ const CostView = () => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '24px' }}>
         <KpiCard label="可用额度" value={fmtCNY(available)} color={COLORS.green} hideRange
           icon={<CreditCardOutlined style={{ fontSize: '20px', color: COLORS.green }} />}
-          hint="当前可继续消费的余额 = 累计充值 + 赠金 − 累计消费。为账户实时余额，不随时间筛选变化。" />
+          hint="可继续消费的实时余额。计算：累计充值 + 赠金 − 累计消费（实时值，不随时间筛选变化）。" />
         <KpiCard label="累计充值" value={fmtCNY(cumRecharge)} color={COLORS.textMain} hideRange
           icon={<ThunderboltOutlined style={{ fontSize: '20px', color: COLORS.blue }} />}
-          hint="账户开通至今的付费充值到账总额（不含赠金）。为全局累计值，不随时间筛选变化。" />
+          hint="账户开通至今的付费充值到账总额（不含赠金）。计算：历次充值到账金额累加（全局值，不随时间筛选变化）。" />
         <KpiCard label="累计消费" value={fmtCNY(cumConsume)} color={COLORS.textMain} hideRange
           icon={<DashboardOutlined style={{ fontSize: '20px', color: COLORS.purple }} />}
-          hint="账户开通至今在全部模型与服务上的累计扣费总额。为全局累计值，不随时间筛选变化。" />
+          hint="账户开通至今的累计扣费总额。计算：全部模型与服务的历次扣费累加（全局值，不随时间筛选变化）。" />
         <KpiCard label="赠金" value={fmtCNY(bonus)} color={COLORS.orange} hideRange
           icon={<SafetyCertificateOutlined style={{ fontSize: '20px', color: COLORS.orange }} />}
-          hint="平台赠送的代金余额，消费时优先于充值余额抵扣。为全局余额，不随时间筛选变化。" />
+          hint="平台赠送的代金余额，消费时优先于充值余额抵扣。计算：累计赠送 − 已用赠金（全局余额，不随时间筛选变化）。" />
       </div>
 
       {/* 消耗概览：请求数 / 总Token / 图片生成 / 视频生成 —— 卡内文案改为迷你趋势图 (deepseek API platform 风格) */}
@@ -557,7 +527,7 @@ const CostView = () => {
         {/* 请求数 —— 面积迷你趋势 */}
         <div className="portkey-card overview-stat">
           <div className="overview-stat-head">
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间范围内的 API 请求总数。<div style={{ marginTop: '8px' }}><Modalities value={['T', 'I', 'A', 'V']} /></div></div>} placement="top">
+            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间范围内的 API 请求总数。计算：区间内各日请求数累加。<div style={{ marginTop: '8px' }}><Modalities value={['T', 'I', 'A', 'V']} /></div></div>} placement="top">
               <span className="overview-stat-label card-title-hint">请求数</span>
             </ATooltip>
             <span className="overview-stat-value">{totalReq.toLocaleString()}</span>
@@ -582,7 +552,7 @@ const CostView = () => {
         {/* 总 Token —— 输入/缓存/输出 堆叠迷你柱，明细见浮窗 */}
         <div className="portkey-card overview-stat">
           <div className="overview-stat-head">
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间范围内的 Token 消耗总量，按输入、缓存、输出三部分拆分。<div style={{ marginTop: '8px' }}><Modalities value={['T', 'I', 'A', 'V']} /></div></div>} placement="top">
+            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间范围内的 Token 消耗总量，分输入/缓存/输出。计算：三类 Token 按日累加求和。<div style={{ marginTop: '8px' }}><Modalities value={['T', 'I', 'A', 'V']} /></div></div>} placement="top">
               <span className="overview-stat-label card-title-hint">总 token</span>
             </ATooltip>
             <span className="overview-stat-value">{fmtM(totalToken)}</span>
@@ -603,7 +573,7 @@ const CostView = () => {
         {/* 图片生成 —— 成功/失败 堆叠迷你柱 */}
         <div className="portkey-card overview-stat">
           <div className="overview-stat-head">
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间范围内的图片生成任务数，按成功与失败拆分。<div style={{ marginTop: '8px' }}><Modalities value={{ in: ['T'], out: 'I' }} /></div></div>} placement="top">
+            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间范围内的图片生成任务数，分成功/失败。计算：成功与失败任务数按日累加。<div style={{ marginTop: '8px' }}><Modalities value={{ in: ['T'], out: 'I' }} /></div></div>} placement="top">
               <span className="overview-stat-label card-title-hint">图片生成</span>
             </ATooltip>
             <span className="overview-stat-value">{totalImg.toLocaleString()}</span>
@@ -623,7 +593,7 @@ const CostView = () => {
         {/* 视频生成 —— 成功/失败 堆叠迷你柱 */}
         <div className="portkey-card overview-stat">
           <div className="overview-stat-head">
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间范围内的视频生成任务数，按成功与失败拆分。<div style={{ marginTop: '8px' }}><Modalities value={{ in: ['T'], out: 'V' }} /></div></div>} placement="top">
+            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间范围内的视频生成任务数，分成功/失败。计算：成功与失败任务数按日累加。<div style={{ marginTop: '8px' }}><Modalities value={{ in: ['T'], out: 'V' }} /></div></div>} placement="top">
               <span className="overview-stat-label card-title-hint">视频生成</span>
             </ATooltip>
             <span className="overview-stat-value">{totalVideo.toLocaleString()}</span>
@@ -645,7 +615,7 @@ const CostView = () => {
       {/* 用量汇总 + 消费汇总 */}
       <div className="dashboard-grid">
         <XCard title="用量汇总" value={fmtM(totalToken)} subtitle="时间段内 Token 用量走势 (输入/缓存/输出)"
-          tip="所选时间范围内 Token 用量的每日走势，按输入、缓存、输出三类堆叠展示。"
+          tip="Token 用量的每日走势，分输入/缓存/输出。计算：按日分别汇总三类 Token 并堆叠。"
           modalities={['T', 'I', 'A', 'V']}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -662,7 +632,7 @@ const CostView = () => {
         </XCard>
 
         <XCard title="消费汇总" value={fmtCNY(totalSpend)} subtitle="时间段内消费金额走势"
-          tip="所选时间范围内消费金额的每日走势，反映各日实际扣费。"
+          tip="消费金额的每日走势，反映各日实际扣费。计算：按日汇总当日全部模型与服务的扣费。"
           modalities={['T', 'I', 'A', 'V']}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -686,18 +656,18 @@ const CostView = () => {
       <div className="dashboard-grid">
         <DistributionCard
           title="按服务商分布" metric={provMetric} setMetric={setProvMetric} data={provData}
-          tip="所选时间范围内的消耗按上游服务商归因，可在费用与 Token 两种口径间切换。"
+          tip="消耗按上游服务商归因，可切换费用/Token 口径。计算：按服务商汇总消耗后计算各自占比。"
           modalities={['T', 'I', 'A', 'V']} />
         <DistributionCard
           title="按模型分布" metric={modelMetric} setMetric={setModelMetric} data={modelData}
-          tip="所选时间范围内的消耗按具体模型归因，可在费用与 Token 两种口径间切换。"
+          tip="消耗按具体模型归因，可切换费用/Token 口径。计算：按模型汇总消耗后计算各自占比。"
           modalities={['T', 'I', 'A', 'V']} />
       </div>
 
       {/* 消耗排行 —— 可下钻 (部门 → 用户 → API Key) · 费用/Token */}
       <div className="portkey-card" style={{ height: 'auto', padding: '20px 24px 24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>按部门 / 用户 / API Key 三个层级看消耗排行（层级为 部门 ⊃ 用户 ⊃ API Key，逐级一对多）。点击任意条目可下钻到下一层级，也可用右上切换直接查看某一层级的全量排行；默认按消耗从高到低。<div style={{ marginTop: '8px' }}><Modalities value={['T', 'I', 'A', 'V']} /></div></div>} placement="top">
+          <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>按部门 / 用户 / API Key 三个层级看消耗排行（层级为 部门 ⊃ 用户 ⊃ API Key，逐级一对多）。点击任意条目可下钻到下一层级，也可用右上切换直接查看某一层级的全量排行；默认按消耗从高到低。计算：按所选层级汇总各对象的消耗后从高到低排序。<div style={{ marginTop: '8px' }}><Modalities value={['T', 'I', 'A', 'V']} /></div></div>} placement="top">
             <span className="card-title-hint" style={{ fontSize: '13px', fontWeight: 500, color: '#64748b' }}>消耗排行</span>
           </ATooltip>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -729,8 +699,12 @@ const CostView = () => {
         {rankData.length === 0 ? (
           <div style={{ padding: '40px 0', textAlign: 'center', color: COLORS.textLight, fontSize: '13px' }}>当前筛选条件下暂无消耗数据</div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '11px', marginTop: '16px' }}>
-            {rankTop.map((d, i) => {
+          <div className={rankData.length > RANK_TOP_N ? 'rank-list rank-list--scroll' : 'rank-list'}
+            style={{ display: 'flex', flexDirection: 'column', gap: '11px',
+              ...(rankData.length > RANK_TOP_N
+                ? { maxHeight: '236px', overflowY: 'auto', overflowX: 'hidden', margin: '16px -8px 0', padding: '0 8px' }
+                : { marginTop: '16px' }) }}>
+            {rankData.map((d, i) => {
               const v = d[rankMetric];
               const pct = rankMax ? (v / rankMax) * 100 : 0;
               const share = (v / rankTotal) * 100;
@@ -762,7 +736,7 @@ const CostView = () => {
           </div>
         )}
 
-        {/* 底部：部门图例 + 查看全部 */}
+        {/* 底部：部门图例 + 总数提示（超出 Top5 时列表内滚动查看全部，不再弹窗） */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '18px' }}>
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
             {Object.entries(DEPT_COLORS).map(([d, c]) => (
@@ -772,31 +746,11 @@ const CostView = () => {
             ))}
           </div>
           {rankData.length > RANK_TOP_N && (
-            <span onClick={() => setRankOpen(true)} style={{ fontSize: '12px', color: COLORS.blue, cursor: 'pointer', fontWeight: 500 }}>
-              查看全部 {rankData.length} 项 →
+            <span style={{ fontSize: '12px', color: COLORS.textLight }}>
+              共 {rankData.length} 项 · 向下滚动查看全部
             </span>
           )}
         </div>
-
-        <Modal open={rankOpen} onCancel={() => { setRankOpen(false); setRankSearch(''); }} footer={null} width={760} title={`消耗排行 · 按${dimLabel}（全部 ${rankData.length} 项）`}>
-          <div style={{ fontSize: '12px', color: COLORS.textLight, margin: '4px 0 12px' }}>
-            按{rankMetric === 'cost' ? '费用' : 'Token'}从高到低，可点表头排序{canDrill ? '；点击名称可下钻到下一层级' : ''}{rankFiltered ? '；已按当前全局筛选过滤' : ''}。
-          </div>
-          <div style={{ position: 'relative', marginBottom: '12px' }}>
-            <SearchOutlined style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: COLORS.textLight }} />
-            <input
-              value={rankSearch}
-              onChange={e => setRankSearch(e.target.value)}
-              placeholder={`搜索${dimLabel}…`}
-              style={{ width: '260px', padding: '6px 10px 6px 30px', border: `1px solid ${COLORS.gray}`, borderRadius: '6px', fontSize: '13px', outline: 'none' }}
-            />
-          </div>
-          {(() => {
-            const q = rankSearch.trim().toLowerCase();
-            const filtered = q ? rankData.filter(d => String(d.name).toLowerCase().includes(q)) : rankData;
-            return <Table columns={rankModalCols} dataSource={filtered} pagination={{ pageSize: 10, hideOnSinglePage: true, showTotal: t => `共 ${t} 项` }} rowKey="id" size="small" scroll={{ y: 340 }} locale={{ emptyText: '无匹配项' }} />;
-          })()}
-        </Modal>
       </div>
     </div>
   );
@@ -886,7 +840,7 @@ const CacheHitCard = () => {
           <span style={{ fontSize: '14px', fontWeight: 500, color: COLORS.textLight }}>命中率 {hitRate}%</span>
         </span>
       }
-      tip="因命中缓存而复用的 Token 总量与命中率；曲线为其每日走势。命中越多、命中率越高，越能省下重复推理的成本。"
+      tip="因命中缓存而复用的 Token 总量与命中率，曲线为每日走势。计算：命中率 = 命中缓存 Token ÷ 总 Token。"
       modalities={['T']}
       extra={hits.extra} control={hits.control}>
       {hits.chart}
@@ -901,7 +855,7 @@ const CacheSavingsCard = () => {
   const savings = useBreakdown({ totalData: dailyData, totalKey: 'savings', totalName: '节省成本', totalColor: COLORS.green, byModel: cacheSavingsByModel, agg: 'sum', unit: ' 元', yTickFormatter: v => '¥' + v, modalTitle: '缓存节省成本 · 按模型明细', valueFmt: v => fmtCNY(v) });
   return (
     <XCard title="缓存节省成本" value={fmtCNY(totalSavings)}
-      tip="命中缓存的请求免去了真实模型调用，按其原本应产生的费用估算出的累计节省金额。"
+      tip="命中缓存免去真实模型调用所估算的累计节省金额。计算：命中缓存 Token × 对应模型单价，再按日累加。"
       modalities={['T']}
       extra={savings.extra} control={savings.control}>
       {savings.chart}
@@ -922,14 +876,14 @@ const ErrorsView = () => {
   return (
   <div className="dashboard-grid">
     <XCard title="报错率" value="4.2%"
-      tip="报错请求数 ÷ 总请求数，反映服务整体稳定性。"
+      tip="服务报错的请求占比，反映整体稳定性。计算：报错请求数 ÷ 总请求数。"
       modalities={['T', 'I', 'A', 'V']}
       extra={rate.extra} control={rate.control}>
       {rate.chart}
       {rate.modal}
     </XCard>
     <XCard title="报错数量" value="850"
-      tip="报错次数，按 HTTP 状态码（429 限流 / 500 服务端 / 401 鉴权）堆叠展示。"
+      tip="报错请求数，按 HTTP 状态码（429 限流/500 服务端/401 鉴权）拆分。计算：按状态码分别累加报错请求数。"
       modalities={['T', 'I', 'A', 'V']}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -945,7 +899,7 @@ const ErrorsView = () => {
       </ResponsiveContainer>
     </XCard>
     <XCard title="报错类型分布" value="5 类"
-      tip="将报错请求按错误类型归类，帮助快速定位主要故障来源。"
+      tip="报错请求按错误类型归类，定位主要故障来源。计算：按类型统计报错请求数并计算占比。"
       modalities={['T', 'I', 'A', 'V']}>
       <div style={{ display: 'flex', height: '100%' }}>
         <div style={{ flex: 1, position: 'relative' }}>
@@ -978,7 +932,7 @@ const ErrorsView = () => {
 // 挽救请求数卡 (抽为组件，供报错分析 Tab 与总览复用)
 const RescuedCard = () => (
   <XCard title="挽救请求数" value="120"
-    tip="通过自动重试 / 故障转移成功挽回的报错请求数，反映系统容错能力。"
+    tip="经自动重试/故障转移最终成功的原报错请求数，反映容错能力。计算：累加重试或转移后转为成功的请求数。"
     modalities={['T', 'I', 'A', 'V']}>
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={dailyData.map(d => ({ ...d, rescued: 0 }))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -1006,7 +960,7 @@ const LatencyCard = () => {
   const lat = useBreakdown({ totalData: dailyData, totalKey: percentile, totalName: `${percentile.toUpperCase()} 延迟`, totalColor: COLORS.blue, byModel: latByModel[percentile], agg: 'avg', unit: ' ms', modalTitle: '端到端延迟 · 按模型明细', valueFmt: v => Math.round(v) + ' ms', controlExtra: pSelect });
   return (
     <XCard title="平均延迟" value={`${percentile.toUpperCase()}: 1.2s`}
-      tip="请求端到端总耗时的分位数（P50 / P95 / P99），可切换分位观察长尾延迟。"
+      tip="请求端到端总耗时的分位数（P50/P95/P99），可切换分位看长尾。计算：对区间内各请求耗时取所选分位。"
       modalities={['T']}
       extra={lat.extra} control={lat.control}>
       {lat.chart}
@@ -1020,7 +974,7 @@ const TtftCard = () => {
   const ttft = useBreakdown({ totalData: dailyData, totalKey: 'ttft', totalName: '首字延迟', totalColor: COLORS.green, byModel: ttftByModel, agg: 'avg', unit: ' ms', modalTitle: '首字延迟 TTFT · 按模型明细', valueFmt: v => Math.round(v) + ' ms' });
   return (
     <XCard title="平均首字延迟 (TTFT)" value="350 ms"
-      tip="从发起请求到返回第一个 Token 的耗时（TTFT），衡量流式响应的初始体验。"
+      tip="从发起请求到首个 Token 返回的耗时（TTFT），衡量流式初始体验。计算：对区间内各请求 TTFT 取平均。"
       modalities={['T']}
       extra={ttft.extra} control={ttft.control}>
       {ttft.chart}
@@ -1059,7 +1013,7 @@ const Seg = ({ options, value, onChange }) => (
 // 整合卡片①：多模态调用量 + 跨模态模型调用排行（按模态趋势 ⇄ 模型排行，排行可展开看全量）
 const MmCallCard = () => (
   <XCard title="多模态调用量" value="12,480 次"
-    tip="多模态请求次数，按模态（图像/音频/视频）堆叠统计，跨模态统一以「次」计。"
+    tip="多模态请求次数，按模态（图像/音频/视频）拆分，统一以「次」计。计算：按模态分别累加请求次数。"
     modalities={['I', 'A', 'V']}>
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -1102,7 +1056,7 @@ const GenTimeCard = () => {
   });
   return (
     <XCard title="平均生成时长" value={`${meta.label} ${p.toUpperCase()}: ${dailyData.at(-1)[dk]}s`}
-      tip="多模态生成任务从提交到产物完成的处理时长分位数（P50 / P95 / P99）。可按模态（图像/音频/视频）切换，默认视频；并可在总览与按模型之间切换。"
+      tip="多模态生成任务从提交到产物完成的处理时长分位数（P50/P95/P99），可按模态切换（默认视频）。计算：对所选模态任务的处理时长取所选分位。"
       modalities={['I', 'A', 'V']}
       extra={mb.extra} control={mb.control}>
       {mb.chart}
@@ -1114,7 +1068,7 @@ const GenTimeCard = () => {
 // 生成类型分布卡 (抽为组件，供多媒体 Tab 与总览复用)
 const GenTypeCard = () => (
   <XCard title="生成类型分布"
-    tip="产物数量按生成媒体类型（图片/视频/音频）的占比分布。"
+    tip="产物数量按生成媒体类型（图片/视频/音频）的占比。计算：按类型统计产物数量并计算占比。"
     modalities={['I', 'A', 'V']}>
     <div style={{ display: 'flex', height: '100%' }}>
       <div style={{ flex: 1, position: 'relative' }}>
@@ -1144,7 +1098,7 @@ const GenTypeCard = () => (
 // 多模态成本卡
 const MmCostCard = () => (
   <XCard title="多模态成本" value="¥1,860.00"
-    tip="消费金额按模态（图像/音频/视频）归因；视频单价较高，建议重点关注。"
+    tip="消费金额按模态（图像/音频/视频）归因。计算：各模态生成请求的实际扣费按日累加并堆叠。"
     modalities={['I', 'A', 'V']}>
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
