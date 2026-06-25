@@ -632,7 +632,7 @@ const CostView = () => {
         </XCard>
 
         <XCard title="消费汇总" value={fmtCNY(totalSpend)} subtitle="时间段内消费金额走势"
-          tip="消费金额的每日走势，反映各日实际扣费。计算：按日汇总当日全部模型与服务的扣费。"
+          tip="消费金额的走势。"
           modalities={['T', 'I', 'A', 'V']}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -656,7 +656,7 @@ const CostView = () => {
       <div className="dashboard-grid">
         <DistributionCard
           title="按服务商分布" metric={provMetric} setMetric={setProvMetric} data={provData}
-          tip="消耗按上游服务商归因，可切换费用/Token 口径。计算：按服务商汇总消耗后计算各自占比。"
+          tip="消耗按上游服务商归因，可切换费用/Token 口径。"
           modalities={['T', 'I', 'A', 'V']} />
         <DistributionCard
           title="按模型分布" metric={modelMetric} setMetric={setModelMetric} data={modelData}
