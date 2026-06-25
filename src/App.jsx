@@ -527,7 +527,7 @@ const CostView = () => {
         {/* 请求数 —— 面积迷你趋势 */}
         <div className="portkey-card overview-stat">
           <div className="overview-stat-head">
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间范围内的 API 请求总数。计算：区间内各日请求数累加。<div style={{ marginTop: '8px' }}><Modalities value={['T', 'I', 'A', 'V']} /></div></div>} placement="top">
+            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>API 请求总数。<div style={{ marginTop: '8px' }}><Modalities value={['T', 'I', 'A', 'V']} /></div></div>} placement="top">
               <span className="overview-stat-label card-title-hint">请求数</span>
             </ATooltip>
             <span className="overview-stat-value">{totalReq.toLocaleString()}</span>
@@ -552,7 +552,7 @@ const CostView = () => {
         {/* 总 Token —— 输入/缓存/输出 堆叠迷你柱，明细见浮窗 */}
         <div className="portkey-card overview-stat">
           <div className="overview-stat-head">
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>所选时间范围内的 Token 消耗总量，分输入/缓存/输出。计算：三类 Token 按日累加求和。<div style={{ marginTop: '8px' }}><Modalities value={['T', 'I', 'A', 'V']} /></div></div>} placement="top">
+            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>Token 消耗总量，分输入/缓存/输出。<div style={{ marginTop: '8px' }}><Modalities value={['T', 'I', 'A', 'V']} /></div></div>} placement="top">
               <span className="overview-stat-label card-title-hint">总 token</span>
             </ATooltip>
             <span className="overview-stat-value">{fmtM(totalToken)}</span>
