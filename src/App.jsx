@@ -1013,7 +1013,7 @@ const Seg = ({ options, value, onChange }) => (
 // 整合卡片①：多模态调用量 + 跨模态模型调用排行（按模态趋势 ⇄ 模型排行，排行可展开看全量）
 const MmCallCard = () => (
   <XCard title="多模态调用量" value="12,480 次"
-    tip="多模态请求次数，按模态（图像/音频/视频）拆分，统一以「次」计。计算：按模态分别累加请求次数。"
+    tip="多模态请求次数，按模态（图像/音频/视频）拆分。计算：按模态分别累加请求次数。"
     modalities={['I', 'A', 'V']}>
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -1056,7 +1056,7 @@ const GenTimeCard = () => {
   });
   return (
     <XCard title="平均生成时长" value={`${meta.label} ${p.toUpperCase()}: ${dailyData.at(-1)[dk]}s`}
-      tip="多模态生成任务从提交到产物完成的处理时长分位数（P50/P95/P99），可按模态切换（默认视频）。计算：对所选模态任务的处理时长取所选分位。"
+      tip="多模态生成任务从提交到产物完成的生成时长分位数（P50/P95/P99），可按模态切换。计算：对区间内该模态全部生成任务的处理时长取所选分位（非按请求量加权）。"
       modalities={['I', 'A', 'V']}
       extra={mb.extra} control={mb.control}>
       {mb.chart}
