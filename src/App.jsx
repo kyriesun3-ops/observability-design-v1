@@ -510,10 +510,10 @@ const CostView = () => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '24px' }}>
         <KpiCard label="可用额度" value={fmtCNY(available)} color={COLORS.green} hideRange
           icon={<CreditCardOutlined style={{ fontSize: '20px', color: COLORS.green }} />}
-          hint="可继续消费的实时余额。计算：累计充值 + 赠金 − 累计消费（实时值，不随时间筛选变化）。" />
+          hint="可继续消费的实时余额。" />
         <KpiCard label="累计充值" value={fmtCNY(cumRecharge)} color={COLORS.textMain} hideRange
           icon={<ThunderboltOutlined style={{ fontSize: '20px', color: COLORS.blue }} />}
-          hint="账户开通至今的付费充值到账总额（不含赠金）。计算：历次充值到账金额累加（全局值，不随时间筛选变化）。" />
+          hint="账户开通至今的付费充值到账总额（不含赠金）。" />
         <KpiCard label="累计消费" value={fmtCNY(cumConsume)} color={COLORS.textMain} hideRange
           icon={<DashboardOutlined style={{ fontSize: '20px', color: COLORS.purple }} />}
           hint="账户开通至今的累计扣费总额。计算：全部模型与服务的历次扣费累加（全局值，不随时间筛选变化）。" />
