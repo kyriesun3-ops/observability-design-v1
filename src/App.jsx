@@ -660,7 +660,7 @@ const CostView = () => {
           modalities={['T', 'I', 'A', 'V']} />
         <DistributionCard
           title="按模型分布" metric={modelMetric} setMetric={setModelMetric} data={modelData}
-          tip="消耗按具体模型归因，可切换费用/Token 口径。计算：按模型汇总消耗后计算各自占比。"
+          tip="消耗按具体模型归因，可切换费用/Token 口径。"
           modalities={['T', 'I', 'A', 'V']} />
       </div>
 
@@ -840,7 +840,7 @@ const CacheHitCard = () => {
           <span style={{ fontSize: '14px', fontWeight: 500, color: COLORS.textLight }}>命中率 {hitRate}%</span>
         </span>
       }
-      tip="因命中缓存而复用的 Token 总量与命中率，曲线为每日走势。计算：命中率 = 命中缓存 Token ÷ 总 Token。"
+      tip="缓存命中Input Token数。"
       modalities={['T']}
       extra={hits.extra} control={hits.control}>
       {hits.chart}
