@@ -1068,7 +1068,7 @@ const GenTimeCard = () => {
 // 生成类型分布卡 (抽为组件，供多媒体 Tab 与总览复用)
 const GenTypeCard = () => (
   <XCard title="生成类型分布"
-    tip="产物数量按生成媒体类型（图片/视频/音频）的占比。计算：按类型统计产物数量并计算占比。"
+    tip="生成媒体类型（图片/视频/音频）的占比。"
     modalities={['I', 'A', 'V']}>
     <div style={{ display: 'flex', height: '100%' }}>
       <div style={{ flex: 1, position: 'relative' }}>
@@ -1098,7 +1098,7 @@ const GenTypeCard = () => (
 // 多模态成本卡
 const MmCostCard = () => (
   <XCard title="多模态成本" value="¥1,860.00"
-    tip="消费金额按模态（图像/音频/视频）归因。计算：各模态生成请求的实际扣费按日累加并堆叠。"
+    tip="各模态生成请求的实际扣费累加。"
     modalities={['I', 'A', 'V']}>
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
