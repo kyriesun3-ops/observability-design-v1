@@ -855,7 +855,7 @@ const CacheSavingsCard = () => {
   const savings = useBreakdown({ totalData: dailyData, totalKey: 'savings', totalName: '节省成本', totalColor: COLORS.green, byModel: cacheSavingsByModel, agg: 'sum', unit: ' 元', yTickFormatter: v => '¥' + v, modalTitle: '缓存节省成本 · 按模型明细', valueFmt: v => fmtCNY(v) });
   return (
     <XCard title="缓存节省成本" value={fmtCNY(totalSavings)}
-      tip="命中缓存免去真实模型调用所估算的累计节省金额。计算：命中缓存 Token × 对应模型单价，再按日累加。"
+      tip="命中缓存免去真实模型调用所估算的累计节省金额。"
       modalities={['T']}
       extra={savings.extra} control={savings.control}>
       {savings.chart}
@@ -876,7 +876,7 @@ const ErrorsView = () => {
   return (
   <div className="dashboard-grid">
     <XCard title="报错率" value="4.2%"
-      tip="服务报错的请求占比，反映整体稳定性。计算：报错请求数 ÷ 总请求数。"
+      tip="服务报错的请求占比。"
       modalities={['T', 'I', 'A', 'V']}
       extra={rate.extra} control={rate.control}>
       {rate.chart}
