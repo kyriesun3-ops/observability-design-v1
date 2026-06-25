@@ -615,7 +615,7 @@ const CostView = () => {
       {/* 用量汇总 + 消费汇总 */}
       <div className="dashboard-grid">
         <XCard title="用量汇总" value={fmtM(totalToken)} subtitle="时间段内 Token 用量走势 (输入/缓存/输出)"
-          tip="Token 用量的每日走势，分输入/缓存/输出。计算：按日分别汇总三类 Token 并堆叠。"
+          tip="Token 用量的走势，分输入/缓存/输出。"
           modalities={['T', 'I', 'A', 'V']}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -667,7 +667,7 @@ const CostView = () => {
       {/* 消耗排行 —— 可下钻 (部门 → 用户 → API Key) · 费用/Token */}
       <div className="portkey-card" style={{ height: 'auto', padding: '20px 24px 24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>按部门 / 用户 / API Key 三个层级看消耗排行（层级为 部门 ⊃ 用户 ⊃ API Key，逐级一对多）。点击任意条目可下钻到下一层级，也可用右上切换直接查看某一层级的全量排行；默认按消耗从高到低。计算：按所选层级汇总各对象的消耗后从高到低排序。<div style={{ marginTop: '8px' }}><Modalities value={['T', 'I', 'A', 'V']} /></div></div>} placement="top">
+          <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>按部门 / 用户 / API Key 三个层级看消耗排行，可切换费用/Token 口径。<div style={{ marginTop: '8px' }}><Modalities value={['T', 'I', 'A', 'V']} /></div></div>} placement="top">
             <span className="card-title-hint" style={{ fontSize: '13px', fontWeight: 500, color: '#64748b' }}>消耗排行</span>
           </ATooltip>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
