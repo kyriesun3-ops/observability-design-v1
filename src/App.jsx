@@ -932,7 +932,7 @@ const ErrorsView = () => {
 // 挽救请求数卡 (抽为组件，供报错分析 Tab 与总览复用)
 const RescuedCard = () => (
   <XCard title="挽救请求数" value="120"
-    tip="经自动重试/故障转移最终成功的原报错请求数，反映容错能力。计算：累加重试或转移后转为成功的请求数。"
+    tip="Fallback成功的请求数。"
     modalities={['T', 'I', 'A', 'V']}>
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={dailyData.map(d => ({ ...d, rescued: 0 }))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -960,7 +960,7 @@ const LatencyCard = () => {
   const lat = useBreakdown({ totalData: dailyData, totalKey: percentile, totalName: `${percentile.toUpperCase()} 延迟`, totalColor: COLORS.blue, byModel: latByModel[percentile], agg: 'avg', unit: ' ms', modalTitle: '端到端延迟 · 按模型明细', valueFmt: v => Math.round(v) + ' ms', controlExtra: pSelect });
   return (
     <XCard title="平均延迟" value={`${percentile.toUpperCase()}: 1.2s`}
-      tip="请求端到端总耗时的分位数（P50/P95/P99），可切换分位看长尾。计算：对区间内各请求耗时取所选分位。"
+      tip="请求端到端总耗时的分位数（P50/P95/P99），可切换分位看长尾。计算：对区间内全部请求的端到端耗时取所选分位（非按请求量加权）。"
       modalities={['T']}
       extra={lat.extra} control={lat.control}>
       {lat.chart}
