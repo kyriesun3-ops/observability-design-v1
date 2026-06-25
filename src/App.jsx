@@ -883,7 +883,7 @@ const ErrorsView = () => {
       {rate.modal}
     </XCard>
     <XCard title="报错数量" value="850"
-      tip="报错请求数，按 HTTP 状态码（429 限流/500 服务端/401 鉴权）拆分。计算：按状态码分别累加报错请求数。"
+      tip="报错请求数，按 HTTP 状态码拆分。"
       modalities={['T', 'I', 'A', 'V']}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -899,7 +899,7 @@ const ErrorsView = () => {
       </ResponsiveContainer>
     </XCard>
     <XCard title="报错类型分布" value="5 类"
-      tip="报错请求按错误类型归类，定位主要故障来源。计算：按类型统计报错请求数并计算占比。"
+      tip="报错请求按错误类型归类。"
       modalities={['T', 'I', 'A', 'V']}>
       <div style={{ display: 'flex', height: '100%' }}>
         <div style={{ flex: 1, position: 'relative' }}>
