@@ -30,6 +30,8 @@ PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_DIR"
 
 LOG_FILE="$PROJECT_DIR/.autosync.log"
+LOCK_DIR="$PROJECT_DIR/.autosync.lock"
+LOCK_PID_FILE="$LOCK_DIR/pid"
 
 # ──── 配置 ────────────────────────────────────────────────
 # fswatch 延迟（秒）：文件停止变动后等待多久才触发同步
@@ -40,8 +42,39 @@ LATENCY=5
 WATCH_TARGETS="src docs public"
 WATCH_FILES="index.html package.json vite.config.js README.md .github"
 
+# ──── 单实例保护 ────────────────────────────────────────────
+acquire_lock() {
+  if mkdir "$LOCK_DIR" 2>/dev/null; then
+    echo "$$" > "$LOCK_PID_FILE"
+    trap 'rm -rf "$LOCK_DIR"' EXIT INT TERM
+    return 0
+  fi
+
+  local OLD_PID
+  OLD_PID="$(cat "$LOCK_PID_FILE" 2>/dev/null || true)"
+  if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
+    echo ""
+    echo "  ○ 自动同步已经在运行，本次启动已跳过"
+    echo "     PID: $OLD_PID"
+    echo ""
+    exit 0
+  fi
+
+  rm -rf "$LOCK_DIR"
+  if mkdir "$LOCK_DIR" 2>/dev/null; then
+    echo "$$" > "$LOCK_PID_FILE"
+    trap 'rm -rf "$LOCK_DIR"' EXIT INT TERM
+    return 0
+  fi
+
+  echo "  ⚠️  自动同步锁创建失败，请稍后重试"
+  exit 1
+}
+
 # ──── 前台监听循环 ───────────────────────────────────────────
 watch_loop() {
+  acquire_lock
+
   # 检查 fswatch
   if ! command -v fswatch &>/dev/null; then
     echo ""
@@ -173,37 +206,28 @@ install_launchd_agent() {
     <string>com.observability.autosync</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/bin/bash</string>
-        <string>${PROJECT_DIR}/autosync.sh</string>
-        <string>launchd</string>
+        <string>/usr/bin/open</string>
+        <string>${PROJECT_DIR}/autosync-start.command</string>
     </array>
-    <key>WorkingDirectory</key>
-    <string>${PROJECT_DIR}</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
-    <true/>
+    <false/>
     <key>StandardErrorPath</key>
-    <string>${LOG_FILE}</string>
+    <string>${PROJECT_DIR}/.autosync-launch.log</string>
     <key>StandardOutPath</key>
-    <string>${LOG_FILE}</string>
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>PATH</key>
-        <string>/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
-    </dict>
-    <key>ThrottleInterval</key>
-    <integer>5</integer>
+    <string>${PROJECT_DIR}/.autosync-launch.log</string>
 </dict>
 </plist>
 AGENT_EOF
 
   chmod 644 "$PLIST_DEST"
+  launchctl unload "$PLIST_DEST" 2>/dev/null || true
   launchctl load "$PLIST_DEST" 2>&1
   echo ""
   echo "  ✅ LaunchAgent 已安装并加载"
   echo "     守护进程名: com.observability.autosync"
-  echo "     每次登录后自动启动"
+  echo "     每次登录后自动打开同步窗口"
   echo "     如需手动停止: launchctl unload $PLIST_DEST"
   echo ""
 }
