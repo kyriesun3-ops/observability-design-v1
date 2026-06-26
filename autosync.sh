@@ -206,17 +206,27 @@ install_launchd_agent() {
     <string>com.observability.autosync</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/bin/open</string>
-        <string>${PROJECT_DIR}/autosync-start.command</string>
+        <string>/bin/bash</string>
+        <string>${PROJECT_DIR}/autosync.sh</string>
+        <string>launchd</string>
     </array>
+    <key>WorkingDirectory</key>
+    <string>${PROJECT_DIR}</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
-    <false/>
+    <true/>
     <key>StandardErrorPath</key>
-    <string>${PROJECT_DIR}/.autosync-launch.log</string>
+    <string>${LOG_FILE}</string>
     <key>StandardOutPath</key>
-    <string>${PROJECT_DIR}/.autosync-launch.log</string>
+    <string>${LOG_FILE}</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+    <key>ThrottleInterval</key>
+    <integer>5</integer>
 </dict>
 </plist>
 AGENT_EOF
@@ -227,7 +237,7 @@ AGENT_EOF
   echo ""
   echo "  ✅ LaunchAgent 已安装并加载"
   echo "     守护进程名: com.observability.autosync"
-  echo "     每次登录后自动打开同步窗口"
+  echo "     每次登录后自动后台同步"
   echo "     如需手动停止: launchctl unload $PLIST_DEST"
   echo ""
 }
