@@ -417,6 +417,7 @@ const CostView = () => {
   const [rankLevel, setRankLevel] = useState('dept'); // dept | member | apiKey —— 当前粒度
   const [rankParent, setRankParent] = useState(null); // 下钻上下文 {type:'dept'|'member', value, dept?}
   const [rankMetric, setRankMetric] = useState('cost'); // cost | tokens
+  const [rankOpen, setRankOpen] = useState(false);   // 查看全部 弹窗（超出 Top5 在弹窗中滚动）
   const activeFilters = useContext(FiltersContext);  // 全局筛选 chip，驱动排行联动过滤
 
   // 消耗概览聚合
@@ -473,6 +474,7 @@ const CostView = () => {
     : parentRows.map(r => ({ id: r.apiKey, name: r.apiKey, dept: r.dept, user: r.user, tokens: r.tokens, cost: r.cost }));
   const rankData = [...rankSrc].sort((a, b) => b[rankMetric] - a[rankMetric]);
   const RANK_TOP_N = 5;
+  const rankTop = rankData.slice(0, RANK_TOP_N); // 卡片仅展示 Top5，其余在弹窗中滚动查看
   const rankMax = rankData.length ? rankData[0][rankMetric] : 1;
   const rankTotal = rankData.reduce((s, d) => s + d[rankMetric], 0) || 1;
   const metricFmt = (v) => rankMetric === 'cost' ? fmtCNY(v) : fmtM(v);
@@ -481,6 +483,36 @@ const CostView = () => {
   const canDrill = rankLevel !== 'apiKey';
   // 选择起始层级 = 回到该粒度的扁平排行
   const jumpLevel = (lv) => { setRankLevel(lv); setRankParent(null); };
+  // 单行排行项渲染（卡片 Top5 与弹窗全量复用，保持视觉一致）
+  const renderRankRow = (d, i) => {
+    const v = d[rankMetric];
+    const pct = rankMax ? (v / rankMax) * 100 : 0;
+    const share = (v / rankTotal) * 100;
+    const col = deptColor(d.dept);
+    const isKey = rankLevel === 'apiKey';
+    const sub = rankLevel === 'dept' ? `${d.userCount} 名用户 · ${d.keyCount} 个 Key`
+      : rankLevel === 'member' ? `${d.dept} · ${d.keyCount} 个 Key`
+      : `${d.dept} · ${d.user}`;
+    return (
+      <div key={d.id} className={'rank-row' + (canDrill ? ' drillable' : '')} onClick={canDrill ? () => drillInto(d) : undefined}
+        style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <span style={{ width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, background: i < 3 ? col : '#f1f5f9', color: i < 3 ? '#fff' : COLORS.textLight }}>{i + 1}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px', gap: '12px' }}>
+            <span style={{ fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <span style={isKey ? { fontFamily: 'monospace', color: COLORS.blue } : { color: COLORS.textMain, fontWeight: 600 }}>{d.name}</span>
+              <span style={{ fontSize: '11px', color: COLORS.textLight, marginLeft: '8px' }}>{sub}</span>
+            </span>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: COLORS.textMain, whiteSpace: 'nowrap' }}>{metricFmt(v)}<span style={{ fontSize: '11px', color: COLORS.textLight, fontWeight: 400, marginLeft: '6px' }}>{share.toFixed(0)}%</span></span>
+          </div>
+          <div style={{ height: '8px', borderRadius: '4px', background: '#f1f5f9', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${pct}%`, borderRadius: '4px', background: col, transition: 'width .3s' }} />
+          </div>
+        </div>
+        {canDrill && <span style={{ flexShrink: 0, color: COLORS.textLight, fontSize: '16px', lineHeight: 1 }}>›</span>}
+      </div>
+    );
+  };
   // 点击某行下钻到其子层级
   const drillInto = (d) => {
     if (rankLevel === 'dept') { setRankParent({ type: 'dept', value: d.name }); setRankLevel('member'); }
@@ -699,44 +731,12 @@ const CostView = () => {
         {rankData.length === 0 ? (
           <div style={{ padding: '40px 0', textAlign: 'center', color: COLORS.textLight, fontSize: '13px' }}>当前筛选条件下暂无消耗数据</div>
         ) : (
-          <div className={rankData.length > RANK_TOP_N ? 'rank-list rank-list--scroll' : 'rank-list'}
-            style={{ display: 'flex', flexDirection: 'column', gap: '11px',
-              ...(rankData.length > RANK_TOP_N
-                ? { maxHeight: '236px', overflowY: 'auto', overflowX: 'hidden', margin: '16px -8px 0', padding: '0 8px' }
-                : { marginTop: '16px' }) }}>
-            {rankData.map((d, i) => {
-              const v = d[rankMetric];
-              const pct = rankMax ? (v / rankMax) * 100 : 0;
-              const share = (v / rankTotal) * 100;
-              const col = deptColor(d.dept);
-              const isKey = rankLevel === 'apiKey';
-              const sub = rankLevel === 'dept' ? `${d.userCount} 名用户 · ${d.keyCount} 个 Key`
-                : rankLevel === 'member' ? `${d.dept} · ${d.keyCount} 个 Key`
-                : `${d.dept} · ${d.user}`;
-              return (
-                <div key={d.id} className={'rank-row' + (canDrill ? ' drillable' : '')} onClick={canDrill ? () => drillInto(d) : undefined}
-                  style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, background: i < 3 ? col : '#f1f5f9', color: i < 3 ? '#fff' : COLORS.textLight }}>{i + 1}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px', gap: '12px' }}>
-                      <span style={{ fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        <span style={isKey ? { fontFamily: 'monospace', color: COLORS.blue } : { color: COLORS.textMain, fontWeight: 600 }}>{d.name}</span>
-                        <span style={{ fontSize: '11px', color: COLORS.textLight, marginLeft: '8px' }}>{sub}</span>
-                      </span>
-                      <span style={{ fontSize: '13px', fontWeight: 600, color: COLORS.textMain, whiteSpace: 'nowrap' }}>{metricFmt(v)}<span style={{ fontSize: '11px', color: COLORS.textLight, fontWeight: 400, marginLeft: '6px' }}>{share.toFixed(0)}%</span></span>
-                    </div>
-                    <div style={{ height: '8px', borderRadius: '4px', background: '#f1f5f9', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, borderRadius: '4px', background: col, transition: 'width .3s' }} />
-                    </div>
-                  </div>
-                  {canDrill && <span style={{ flexShrink: 0, color: COLORS.textLight, fontSize: '16px', lineHeight: 1 }}>›</span>}
-                </div>
-              );
-            })}
+          <div className="rank-list" style={{ display: 'flex', flexDirection: 'column', gap: '11px', marginTop: '16px' }}>
+            {rankTop.map((d, i) => renderRankRow(d, i))}
           </div>
         )}
 
-        {/* 底部：部门图例 + 总数提示（超出 Top5 时列表内滚动查看全部，不再弹窗） */}
+        {/* 底部：部门图例 + 查看全部（超出 Top5 在弹窗中滚动查看） */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '18px' }}>
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
             {Object.entries(DEPT_COLORS).map(([d, c]) => (
@@ -746,11 +746,22 @@ const CostView = () => {
             ))}
           </div>
           {rankData.length > RANK_TOP_N && (
-            <span style={{ fontSize: '12px', color: COLORS.textLight }}>
-              共 {rankData.length} 项 · 向下滚动查看全部
+            <span onClick={() => setRankOpen(true)} style={{ fontSize: '12px', color: COLORS.blue, cursor: 'pointer', fontWeight: 500 }}>
+              查看全部 {rankData.length} 项 →
             </span>
           )}
         </div>
+
+        {/* 全部排行弹窗：完整榜单在弹窗内滚动 */}
+        <Modal open={rankOpen} onCancel={() => setRankOpen(false)} footer={null} width={720}
+          title={`消耗排行 · 按${dimLabel}（全部 ${rankData.length} 项）`}>
+          <div style={{ fontSize: '12px', color: COLORS.textLight, margin: '4px 0 12px' }}>
+            按{rankMetric === 'cost' ? '费用' : 'Token'}从高到低{rankFiltered ? '；已按当前全局筛选过滤' : ''}。
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '11px', maxHeight: '420px', overflowY: 'auto', overflowX: 'hidden', margin: '0 -4px', padding: '0 4px' }}>
+            {rankData.map((d, i) => renderRankRow(d, i))}
+          </div>
+        </Modal>
       </div>
     </div>
   );
