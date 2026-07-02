@@ -52,7 +52,7 @@ acquire_lock() {
 
   local OLD_PID
   OLD_PID="$(cat "$LOCK_PID_FILE" 2>/dev/null || true)"
-  if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
+  if [ -n "$OLD_PID" ] && ps -p "$OLD_PID" -o args= 2>/dev/null | grep -q "[a]utosync.sh"; then
     echo ""
     echo "  ○ 自动同步已经在运行，本次启动已跳过"
     echo "     PID: $OLD_PID"
@@ -134,8 +134,16 @@ poll_once() {
       return 0
     fi
 
-    # add
-    git add -A 2>>"$LOG_FILE" || { echo "[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️  git add 失败" >> "$LOG_FILE"; return 0; }
+    # add only watched prototype paths; keep local planning/export files out of auto-sync
+    local STAGE_PATHS=()
+    local P
+    for P in $WATCH_TARGETS $WATCH_FILES autosync.sh autosync-start.command autosync-stop.command .githooks; do
+      [ -e "$P" ] && STAGE_PATHS+=("$P")
+    done
+    if [ "${#STAGE_PATHS[@]}" -eq 0 ]; then
+      return 0
+    fi
+    git add -- "${STAGE_PATHS[@]}" 2>>"$LOG_FILE" || { echo "[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️  git add 失败" >> "$LOG_FILE"; return 0; }
     if git diff --cached --quiet; then return 0; fi
 
     # 提交

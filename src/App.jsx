@@ -10,7 +10,7 @@ import { ThunderboltOutlined, WarningOutlined, SafetyCertificateOutlined,
   CreditCardOutlined, UserOutlined, InfoCircleOutlined, GlobalOutlined,
   EditOutlined, PlusOutlined, CheckOutlined, CloseOutlined, HolderOutlined,
   LoadingOutlined, ReloadOutlined, TagOutlined, UnorderedListOutlined,
-  FilterOutlined, InboxOutlined } from '@ant-design/icons';
+  FilterOutlined, InboxOutlined, KeyOutlined } from '@ant-design/icons';
 import { Table, Tooltip as ATooltip, Modal, DatePicker, Drawer, Dropdown, Checkbox, Popconfirm, Input, Button } from 'antd';
 import dayjs from 'dayjs';
 
@@ -329,42 +329,38 @@ const CustomTooltip = ({ active, payload, label, unit }) => {
   return null;
 };
 
-// --- TIME FILTER COMPONENT ---
+// --- TIME FILTER COMPONENT (对齐 Figma: 分段按钮 近1小时/近1天/近1月/自定义，选中项深色描边) ---
 const timeOptions = [
   { label: '近1小时', value: '1h' },
   { label: '近1天', value: '24h' },
-  { label: '近3天', value: '3d' },
-  { label: '近7天', value: '7d' },
-  { label: '近1个月', value: '30d' },
+  { label: '近1月', value: '30d' },
   { label: '自定义', value: 'custom' },
 ];
 
 const TimeFilter = ({ selected, setSelected, customRange, setCustomRange }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-    <div className="date-filter" style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
-      <CalendarOutlined style={{ color: '#64748b' }} />
-      <select
-        value={selected}
-        onChange={e => setSelected(e.target.value)}
-        style={{ border: 'none', background: 'transparent', fontSize: '14px', color: COLORS.textMain, marginLeft: '4px', outline: 'none', cursor: 'pointer' }}
-      >
-        {timeOptions.map(opt => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
-      <DownOutlined style={{ fontSize: '10px', marginLeft: '4px', color: COLORS.textLight }} />
-    </div>
+    {/* 自定义时：左侧出现「开始日期 至 结束日期」范围选择 (双月历弹层，对齐 Figma「日期范围选择器弹窗」) */}
     {selected === 'custom' && (
       <DatePicker.RangePicker
-        showTime={{ format: 'HH:mm' }}
-        format="YYYY-MM-DD HH:mm"
-        placeholder={['开始时间', '结束时间']}
+        format="YYYY-MM-DD"
+        placeholder={['开始日期', '结束日期']}
+        separator={<span style={{ color: '#94a3b8', fontSize: '12px' }}>至</span>}
+        suffixIcon={null}
+        prefix={<CalendarOutlined style={{ color: '#64748b', marginRight: '4px' }} />}
         value={customRange}
         onChange={(dates) => setCustomRange(dates)}
-        size="small"
-        style={{ borderRadius: '6px', border: '1px solid #cbd5e1' }}
+        style={{ borderRadius: '6px', border: '1px solid #e2e8f0' }}
       />
     )}
+    <div className="time-seg">
+      {timeOptions.map(opt => (
+        <span key={opt.value}
+          className={`time-seg-item ${selected === opt.value ? 'active' : ''}`}
+          onClick={() => setSelected(opt.value)}>
+          {opt.label}
+        </span>
+      ))}
+    </div>
   </div>
 );
 
@@ -1336,11 +1332,12 @@ const RANGE_LABELS = {
 };
 
 // 全局筛选维度 (参考 Portkey, 新增 Resource)。可叠加, 一次加一个
+// 筛选维度 (对齐 Figma「添加筛选选项弹窗」：模型 / 供应商 / API密钥 / 用户，带图标)
 const FILTER_DIMENSIONS = [
-  { key: 'model', label: 'Model' },
-  { key: 'user', label: 'User' },
-  { key: 'apiKey', label: 'API Key' },
-  { key: 'provider', label: 'Provider' },
+  { key: 'model', label: '模型', icon: <AppstoreOutlined /> },
+  { key: 'provider', label: '供应商', icon: <GlobalOutlined /> },
+  { key: 'apiKey', label: 'API密钥', icon: <KeyOutlined /> },
+  { key: 'user', label: '用户', icon: <UserOutlined /> },
 ];
 
 // 各维度的可选值：预设项走「可搜索下拉」，取代原来的手动输入 (方案 A)
@@ -1353,6 +1350,9 @@ const FILTER_VALUE_OPTIONS = {
   cache: ['命中', '未命中'],
   resource: ['Desk · GPU 型', 'Desk · 标准型', 'Desk · 高内存型'],
 };
+
+// 值列表前的品牌标识占位 (设计稿为服务商 logo，原型用首字母色块代替)
+const FILTER_LOGO_COLORS = ['#1677ff', '#722ed1', '#13c2c2', '#faad14', '#52c41a', '#ff4d4f', '#0ea5e9'];
 
 // 可叠加筛选 (对齐 Figma「添加筛选选项弹窗」)：
 // 点击输入区弹出级联面板 —— 左列选维度，右列勾选值 (checkbox 多选)，选中即成 chip「维度/值 ×」
@@ -1375,7 +1375,7 @@ const FilterBar = ({ filters, setFilters }) => {
     <div className="search-input-wrapper filter-bar-anchor" style={{ flexWrap: 'wrap', gap: '6px', position: 'relative' }}>
       <FilterOutlined style={{ color: '#94a3b8' }} />
       {filters.map(f => (
-        <span key={f.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '4px', padding: '2px 8px', fontSize: '13px', color: '#1e293b' }}>
+        <span key={f.id} className="filter-chip">
           <span style={{ color: '#64748b' }}>{f.label}/</span>{f.value}
           <span onClick={(e) => { e.stopPropagation(); removeFilter(f.id); }} style={{ cursor: 'pointer', color: '#94a3b8', marginLeft: '2px', fontWeight: 600 }}>×</span>
         </span>
@@ -1394,7 +1394,9 @@ const FilterBar = ({ filters, setFilters }) => {
             <div className="filter-panel-dims">
               {FILTER_DIMENSIONS.map(d => (
                 <div key={d.key} className={`filter-dim-item ${dim === d.key ? 'active' : ''}`} onClick={() => setDim(d.key)}>
-                  <span>{d.label}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'inherit' }}>
+                    <span style={{ color: '#64748b', fontSize: '13px' }}>{d.icon}</span>{d.label}
+                  </span>
                   {dimCount(d.key) > 0 && <CheckOutlined style={{ fontSize: '11px', color: COLORS.blue }} />}
                 </div>
               ))}
@@ -1402,7 +1404,8 @@ const FilterBar = ({ filters, setFilters }) => {
             <div className="filter-panel-values">
               {values.map(v => (
                 <div key={v} className="filter-value-item" onClick={() => toggleValue(dim, v)}>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v}</span>
+                  <span className="filter-logo" style={{ background: FILTER_LOGO_COLORS[v.charCodeAt(0) % FILTER_LOGO_COLORS.length] }}>{v[0].toUpperCase()}</span>
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v}</span>
                   <Checkbox checked={isChecked(dim, v)} onClick={e => e.stopPropagation()} onChange={() => toggleValue(dim, v)} />
                 </div>
               ))}
@@ -1747,7 +1750,11 @@ const ToastStack = ({ toasts, onUndo, onClose }) => (
 const App = () => {
   // tab / 时间窗口默认保留：从 localStorage 恢复，手动刷新不会重置选中的 tab
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('ob_activeTab') || 'overview');
-  const [timeRange, setTimeRange] = useState(() => localStorage.getItem('ob_timeRange') || '30d');
+  const [timeRange, setTimeRange] = useState(() => {
+    const v = localStorage.getItem('ob_timeRange') || '30d';
+    // 时间窗收敛为 近1小时/近1天/近1月/自定义 (对齐 Figma)，旧值 3d/7d 归入近1月
+    return ['1h', '24h', '30d', 'custom'].includes(v) ? v : '30d';
+  });
   const [customRange, setCustomRange] = useState(() => {
     const stored = localStorage.getItem('ob_customRange');
     if (stored) {
@@ -1761,7 +1768,7 @@ const App = () => {
     return null;
   });
   const rangeLabel = timeRange === 'custom' && customRange && customRange[0] && customRange[1]
-    ? `数据来自 ${customRange[0].format('YYYY年MM月DD日 HH:mm')} 至 ${customRange[1].format('YYYY年MM月DD日 HH:mm')}`
+    ? `数据来自 ${customRange[0].format('YYYY年MM月DD日')} 至 ${customRange[1].format('YYYY年MM月DD日')}`
     : (RANGE_LABELS[timeRange] || '数据来自 05月03日 至 06月01日');
 
   useEffect(() => { localStorage.setItem('ob_activeTab', activeTab); }, [activeTab]);
@@ -1993,7 +2000,7 @@ const App = () => {
           <main className="main-content">
             <div className="filters-bar">
               <button title="刷新数据" onClick={() => setLoadTick(t => t + 1)}
-                style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', color: '#10b981' }}>
+                style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', color: '#1677ff' }}>
                 <SyncOutlined />
               </button>
               <FilterBar filters={filters} setFilters={setFilters} />
