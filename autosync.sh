@@ -42,6 +42,13 @@ LATENCY=5
 WATCH_TARGETS="src docs public"
 WATCH_FILES="index.html package.json vite.config.js README.md .github"
 
+watched_paths() {
+  local P
+  for P in $WATCH_TARGETS $WATCH_FILES autosync.sh autosync-start.command autosync-stop.command .githooks; do
+    [ -e "$P" ] && printf '%s\n' "$P"
+  done
+}
+
 # ──── 单实例保护 ────────────────────────────────────────────
 acquire_lock() {
   if mkdir "$LOCK_DIR" 2>/dev/null; then
@@ -129,20 +136,20 @@ poll_once() {
       return 0
     fi
 
-    # 检查是否有变更
-    if git diff --quiet && git diff --cached --quiet && git ls-files --others --exclude-standard --quiet; then
+    # 检查监听范围内是否有变更
+    local STAGE_PATHS=()
+    local P
+    while IFS= read -r P; do
+      STAGE_PATHS+=("$P")
+    done < <(watched_paths)
+    if [ "${#STAGE_PATHS[@]}" -eq 0 ]; then
+      return 0
+    fi
+    if [ -z "$(git status --porcelain -- "${STAGE_PATHS[@]}")" ]; then
       return 0
     fi
 
     # add only watched prototype paths; keep local planning/export files out of auto-sync
-    local STAGE_PATHS=()
-    local P
-    for P in $WATCH_TARGETS $WATCH_FILES autosync.sh autosync-start.command autosync-stop.command .githooks; do
-      [ -e "$P" ] && STAGE_PATHS+=("$P")
-    done
-    if [ "${#STAGE_PATHS[@]}" -eq 0 ]; then
-      return 0
-    fi
     git add -- "${STAGE_PATHS[@]}" 2>>"$LOG_FILE" || { echo "[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️  git add 失败" >> "$LOG_FILE"; return 0; }
     if git diff --cached --quiet; then return 0; fi
 
