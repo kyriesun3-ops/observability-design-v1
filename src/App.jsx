@@ -7,8 +7,11 @@ import { ThunderboltOutlined, WarningOutlined, SafetyCertificateOutlined,
   DashboardOutlined, PlaySquareOutlined, DesktopOutlined,
   SyncOutlined, SearchOutlined, CalendarOutlined, DownOutlined,
   AppstoreOutlined, RightOutlined, FullscreenOutlined,
-  CreditCardOutlined, UserOutlined, InfoCircleOutlined, GlobalOutlined } from '@ant-design/icons';
-import { Table, Tooltip as ATooltip, Select, Modal, DatePicker } from 'antd';
+  CreditCardOutlined, UserOutlined, InfoCircleOutlined, GlobalOutlined,
+  EditOutlined, PlusOutlined, CheckOutlined, CloseOutlined, HolderOutlined,
+  LoadingOutlined, ReloadOutlined, TagOutlined, UnorderedListOutlined,
+  FilterOutlined, InboxOutlined } from '@ant-design/icons';
+import { Table, Tooltip as ATooltip, Modal, DatePicker, Drawer, Dropdown, Checkbox, Popconfirm, Input, Button } from 'antd';
 import dayjs from 'dayjs';
 
 // --- 格式化工具 ---
@@ -389,60 +392,185 @@ const KpiCard = ({ label, value, icon, color, hint, hideRange }) => {
   );
 };
 
-// --- 总览 (Overview) ---
-// 总览 = 完整「消耗分析」Tab 的全部卡片 (原样粘贴) + 下方追加其他 Tab 的关键指标卡 (原样)
-const OverviewView = () => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-    {/* 1) 消耗分析 Tab 的全部卡片，原样粘贴 */}
-    <CostView />
-    {/* 2) 其他 Tab 的关键指标卡，原样追加于下方 */}
-    <div className="dashboard-grid">
-      <CacheHitCard />
-      <CacheSavingsCard />
-      <RescuedCard />
-      <LatencyCard />
-      <TtftCard />
-      <GenTypeCard />
-      <MmCostCard />
-      <GenTimeCard />
-    </div>
-  </div>
-);
-
-
-const CostView = () => {
-  const rangeLabel = useContext(TimeRangeContext);
-  const [provMetric, setProvMetric] = useState('cost'); // cost | tokens
-  const [modelMetric, setModelMetric] = useState('cost');
-  const [rankLevel, setRankLevel] = useState('dept'); // dept | member | apiKey —— 当前粒度
-  const [rankParent, setRankParent] = useState(null); // 下钻上下文 {type:'dept'|'member', value, dept?}
-  const [rankMetric, setRankMetric] = useState('cost'); // cost | tokens
-  const [rankOpen, setRankOpen] = useState(false);   // 查看全部 弹窗（超出 Top5 在弹窗中滚动）
-  const activeFilters = useContext(FiltersContext);  // 全局筛选 chip，驱动排行联动过滤
-
-  // 消耗概览聚合
+// --- 消耗分析：模块级聚合 (供拆分后的各指标卡组件共享) ---
+const AGG = (() => {
   const totalReq = dailyData.reduce((s, d) => s + d.requests, 0);
   const totalInput = dailyData.reduce((s, d) => s + d.inputTokens, 0);
   const totalCache = dailyData.reduce((s, d) => s + d.cacheTokens, 0);
   const totalOutput = dailyData.reduce((s, d) => s + d.outputTokens, 0);
   const totalToken = totalInput + totalCache + totalOutput;
   const totalSpend = dailyData.reduce((s, d) => s + d.spend, 0);
-
   // 图片 / 视频生成 (成功 / 失败) —— 对齐 OneLink 总览口径
   const imgSuccess = 4320, imgFailed = 86;
   const videoSuccess = 1280, videoFailed = 23;
-  const totalImg = imgSuccess + imgFailed;
-  const totalVideo = videoSuccess + videoFailed;
-
   // 账户额度 (mock)
-  const cumRecharge = 50000;   // 累计充值
-  const bonus = 2000;          // 赠金
-  const cumConsume = 38680.50; // 累计消费
-  const available = cumRecharge + bonus - cumConsume; // 可用额度
+  const cumRecharge = 50000, bonus = 2000, cumConsume = 38680.50;
+  return {
+    totalReq, totalToken, totalSpend,
+    totalImg: imgSuccess + imgFailed, totalVideo: videoSuccess + videoFailed,
+    cumRecharge, bonus, cumConsume, available: cumRecharge + bonus - cumConsume,
+    imgDaily: dailyData.map(d => ({ date: d.date, ok: d.mmImageReq, fail: Math.max(1, Math.round(d.mmImageReq * 0.02)) })),
+    videoDaily: dailyData.map(d => ({ date: d.date, ok: d.mmVideoReq, fail: Math.max(1, Math.round(d.mmVideoReq * 0.05)) })),
+  };
+})();
 
-  // 服务商 / 模型分布按当前指标排序
-  const provData = [...providerSpendData].sort((a, b) => b[provMetric] - a[provMetric]);
-  const modelData = [...modelSpendData].sort((a, b) => b[modelMetric] - a[modelMetric]);
+// --- 账户额度 KPI 卡 (拆分为独立指标卡组件) ---
+const AvailableCard = () => (
+  <KpiCard label="可用额度" value={fmtCNY(AGG.available)} color={COLORS.green} hideRange
+    icon={<CreditCardOutlined style={{ fontSize: '20px', color: COLORS.green }} />}
+    hint="可继续消费的实时余额。" />
+);
+const RechargeCard = () => (
+  <KpiCard label="累计充值" value={fmtCNY(AGG.cumRecharge)} color={COLORS.textMain} hideRange
+    icon={<ThunderboltOutlined style={{ fontSize: '20px', color: COLORS.blue }} />}
+    hint="账户开通至今的付费充值到账总额（不含赠金）。" />
+);
+const ConsumeCard = () => (
+  <KpiCard label="累计消费" value={fmtCNY(AGG.cumConsume)} color={COLORS.textMain} hideRange
+    icon={<DashboardOutlined style={{ fontSize: '20px', color: COLORS.purple }} />}
+    hint="账户开通至今的累计扣费总额。" />
+);
+const BonusCard = () => (
+  <KpiCard label="赠金" value={fmtCNY(AGG.bonus)} color={COLORS.orange} hideRange
+    icon={<SafetyCertificateOutlined style={{ fontSize: '20px', color: COLORS.orange }} />}
+    hint="平台赠送的代金余额，消费时优先于充值余额抵扣。" />
+);
+
+// --- 消耗概览迷你趋势卡 (deepseek API platform 风格) ---
+const MiniStatCard = ({ label, tipText, modalities, value, children }) => {
+  const rangeLabel = useContext(TimeRangeContext);
+  return (
+    <div className="portkey-card overview-stat">
+      <div className="overview-stat-head">
+        <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>{tipText}<div style={{ marginTop: '8px' }}><Modalities value={modalities} /></div></div>} placement="top">
+          <span className="overview-stat-label card-title-hint">{label}</span>
+        </ATooltip>
+        <span className="overview-stat-value">{value}</span>
+      </div>
+      <div className="overview-stat-chart">{children}</div>
+      <div className="overview-stat-sub">{rangeLabel}</div>
+    </div>
+  );
+};
+
+const ReqStatCard = () => (
+  <MiniStatCard label="请求数" tipText="API 请求总数。" modalities={['T', 'I', 'A', 'V']} value={AGG.totalReq.toLocaleString()}>
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={dailyData} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+        <defs>
+          <linearGradient id="spkReq" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={COLORS.blue} stopOpacity={0.25} />
+            <stop offset="100%" stopColor={COLORS.blue} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <XAxis dataKey="date" hide />
+        <Tooltip content={<CustomTooltip unit=" 次" />} cursor={CROSSHAIR} />
+        <Area type="monotone" dataKey="requests" name="请求数" stroke={COLORS.blue} strokeWidth={1.8} fill="url(#spkReq)" activeDot={ACTIVE_DOT} />
+      </AreaChart>
+    </ResponsiveContainer>
+  </MiniStatCard>
+);
+const TokenStatCard = () => (
+  <MiniStatCard label="总 token" tipText="Token 消耗总量，分输入/缓存/输出。" modalities={['T', 'I', 'A', 'V']} value={fmtM(AGG.totalToken)}>
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={dailyData} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+        <XAxis dataKey="date" hide />
+        <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
+        <Bar dataKey="inputTokens" name="输入" stackId="t" fill={COLORS.blue} maxBarSize={14} />
+        <Bar dataKey="cacheTokens" name="缓存" stackId="t" fill={COLORS.cyan} maxBarSize={14} />
+        <Bar dataKey="outputTokens" name="输出" stackId="t" fill={COLORS.purple} maxBarSize={14} radius={[2, 2, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  </MiniStatCard>
+);
+const ImgGenStatCard = () => (
+  <MiniStatCard label="图片生成" tipText="图片生成任务数，分成功/失败。" modalities={{ in: ['T'], out: 'I' }} value={AGG.totalImg.toLocaleString()}>
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={AGG.imgDaily} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+        <XAxis dataKey="date" hide />
+        <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
+        <Bar dataKey="ok" name="成功" stackId="g" fill={COLORS.purple} maxBarSize={14} />
+        <Bar dataKey="fail" name="失败" stackId="g" fill={COLORS.red} maxBarSize={14} radius={[2, 2, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  </MiniStatCard>
+);
+const VideoGenStatCard = () => (
+  <MiniStatCard label="视频生成" tipText="视频生成任务数，分成功/失败。" modalities={{ in: ['T'], out: 'V' }} value={AGG.totalVideo.toLocaleString()}>
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={AGG.videoDaily} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+        <XAxis dataKey="date" hide />
+        <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
+        <Bar dataKey="ok" name="成功" stackId="g" fill={COLORS.cyan} maxBarSize={14} />
+        <Bar dataKey="fail" name="失败" stackId="g" fill={COLORS.red} maxBarSize={14} radius={[2, 2, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  </MiniStatCard>
+);
+
+// --- 用量汇总 / 消费汇总 ---
+const UsageSummaryCard = () => (
+  <XCard title="用量汇总" value={fmtM(AGG.totalToken)} subtitle="时间段内 Token 用量走势 (输入/缓存/输出)"
+    tip="Token 用量的走势，分输入/缓存/输出。"
+    modalities={['T', 'I', 'A', 'V']}>
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} ticks={AXIS_END_TICKS} interval={0} />
+        <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={2} tickFormatter={v => (v / 1_000_000).toFixed(0) + 'M'} />
+        <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
+        <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+        <Bar dataKey="inputTokens" name="输入" stackId="t" fill={COLORS.blue} maxBarSize={30} />
+        <Bar dataKey="cacheTokens" name="缓存" stackId="t" fill={COLORS.cyan} maxBarSize={30} />
+        <Bar dataKey="outputTokens" name="输出" stackId="t" fill={COLORS.purple} maxBarSize={30} radius={[2, 2, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  </XCard>
+);
+const SpendSummaryCard = () => (
+  <XCard title="消费汇总" value={fmtCNY(AGG.totalSpend)} subtitle="时间段内消费金额走势"
+    tip="消费金额的走势。"
+    modalities={['T', 'I', 'A', 'V']}>
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <defs>
+          <linearGradient id="colorSpend" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={COLORS.green} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={COLORS.green} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} ticks={AXIS_END_TICKS} interval={0} />
+        <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={2} tickFormatter={v => '¥' + v} />
+        <Tooltip content={<CustomTooltip unit=" 元" />} cursor={CROSSHAIR} />
+        <Area type="monotone" dataKey="spend" name="消费金额" stroke={COLORS.green} strokeWidth={2} fillOpacity={1} fill="url(#colorSpend)" />
+      </AreaChart>
+    </ResponsiveContainer>
+  </XCard>
+);
+
+// --- 按服务商 / 按模型分布 (独立组件, 内部维护 费用/Token 切换) ---
+const ProviderDistCard = () => {
+  const [metric, setMetric] = useState('cost');
+  const data = [...providerSpendData].sort((a, b) => b[metric] - a[metric]);
+  return <DistributionCard title="按服务商分布" metric={metric} setMetric={setMetric} data={data}
+    tip="消耗按上游服务商归因，可切换费用/Token 口径。" modalities={['T', 'I', 'A', 'V']} />;
+};
+const ModelDistCard = () => {
+  const [metric, setMetric] = useState('cost');
+  const data = [...modelSpendData].sort((a, b) => b[metric] - a[metric]);
+  return <DistributionCard title="按模型分布" metric={metric} setMetric={setMetric} data={data}
+    tip="消耗按具体模型归因，可切换费用/Token 口径。" modalities={['T', 'I', 'A', 'V']} />;
+};
+
+// --- 消耗排行 (可下钻: 部门 → 用户 → API Key) ---
+const ConsumeRankCard = () => {
+  const rangeLabel = useContext(TimeRangeContext);
+  const [rankLevel, setRankLevel] = useState('dept'); // dept | member | apiKey —— 当前粒度
+  const [rankParent, setRankParent] = useState(null); // 下钻上下文 {type:'dept'|'member', value, dept?}
+  const [rankMetric, setRankMetric] = useState('cost'); // cost | tokens
+  const [rankOpen, setRankOpen] = useState(false);   // 查看全部 弹窗（超出 Top5 在弹窗中滚动）
+  const activeFilters = useContext(FiltersContext);  // 全局筛选 chip，驱动排行联动过滤
 
   // 消耗排行：可下钻探索 —— 部门 → 用户 → API Key（严格层级，均多对一）。
   // 受全局筛选联动：按 model / user / apiKey / provider 过滤参与排行的记录 (同维度 OR，跨维度 AND)。
@@ -532,171 +660,7 @@ const CostView = () => {
       ))}
     </div>
   );
-  // deepseek API platform 风格：概览卡内嵌迷你趋势图所需的逐日序列 (图片/视频按 成功·失败 拆分)
-  const imgDaily = dailyData.map(d => ({ date: d.date, ok: d.mmImageReq, fail: Math.max(1, Math.round(d.mmImageReq * 0.02)) }));
-  const videoDaily = dailyData.map(d => ({ date: d.date, ok: d.mmVideoReq, fail: Math.max(1, Math.round(d.mmVideoReq * 0.05)) }));
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* 账户额度 KPI 行 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '24px' }}>
-        <KpiCard label="可用额度" value={fmtCNY(available)} color={COLORS.green} hideRange
-          icon={<CreditCardOutlined style={{ fontSize: '20px', color: COLORS.green }} />}
-          hint="可继续消费的实时余额。" />
-        <KpiCard label="累计充值" value={fmtCNY(cumRecharge)} color={COLORS.textMain} hideRange
-          icon={<ThunderboltOutlined style={{ fontSize: '20px', color: COLORS.blue }} />}
-          hint="账户开通至今的付费充值到账总额（不含赠金）。" />
-        <KpiCard label="累计消费" value={fmtCNY(cumConsume)} color={COLORS.textMain} hideRange
-          icon={<DashboardOutlined style={{ fontSize: '20px', color: COLORS.purple }} />}
-          hint="账户开通至今的累计扣费总额。" />
-        <KpiCard label="赠金" value={fmtCNY(bonus)} color={COLORS.orange} hideRange
-          icon={<SafetyCertificateOutlined style={{ fontSize: '20px', color: COLORS.orange }} />}
-          hint="平台赠送的代金余额，消费时优先于充值余额抵扣。" />
-      </div>
-
-      {/* 消耗概览：请求数 / 总Token / 图片生成 / 视频生成 —— 卡内文案改为迷你趋势图 (deepseek API platform 风格) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px' }}>
-        {/* 请求数 —— 面积迷你趋势 */}
-        <div className="portkey-card overview-stat">
-          <div className="overview-stat-head">
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>API 请求总数。<div style={{ marginTop: '8px' }}><Modalities value={['T', 'I', 'A', 'V']} /></div></div>} placement="top">
-              <span className="overview-stat-label card-title-hint">请求数</span>
-            </ATooltip>
-            <span className="overview-stat-value">{totalReq.toLocaleString()}</span>
-          </div>
-          <div className="overview-stat-chart">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dailyData} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="spkReq" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={COLORS.blue} stopOpacity={0.25} />
-                    <stop offset="100%" stopColor={COLORS.blue} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="date" hide />
-                <Tooltip content={<CustomTooltip unit=" 次" />} cursor={CROSSHAIR} />
-                <Area type="monotone" dataKey="requests" name="请求数" stroke={COLORS.blue} strokeWidth={1.8} fill="url(#spkReq)" activeDot={ACTIVE_DOT} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="overview-stat-sub">{rangeLabel}</div>
-        </div>
-        {/* 总 Token —— 输入/缓存/输出 堆叠迷你柱，明细见浮窗 */}
-        <div className="portkey-card overview-stat">
-          <div className="overview-stat-head">
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>Token 消耗总量，分输入/缓存/输出。<div style={{ marginTop: '8px' }}><Modalities value={['T', 'I', 'A', 'V']} /></div></div>} placement="top">
-              <span className="overview-stat-label card-title-hint">总 token</span>
-            </ATooltip>
-            <span className="overview-stat-value">{fmtM(totalToken)}</span>
-          </div>
-          <div className="overview-stat-chart">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dailyData} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-                <XAxis dataKey="date" hide />
-                <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
-                <Bar dataKey="inputTokens" name="输入" stackId="t" fill={COLORS.blue} maxBarSize={14} />
-                <Bar dataKey="cacheTokens" name="缓存" stackId="t" fill={COLORS.cyan} maxBarSize={14} />
-                <Bar dataKey="outputTokens" name="输出" stackId="t" fill={COLORS.purple} maxBarSize={14} radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="overview-stat-sub">{rangeLabel}</div>
-        </div>
-        {/* 图片生成 —— 成功/失败 堆叠迷你柱 */}
-        <div className="portkey-card overview-stat">
-          <div className="overview-stat-head">
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>图片生成任务数，分成功/失败。<div style={{ marginTop: '8px' }}><Modalities value={{ in: ['T'], out: 'I' }} /></div></div>} placement="top">
-              <span className="overview-stat-label card-title-hint">图片生成</span>
-            </ATooltip>
-            <span className="overview-stat-value">{totalImg.toLocaleString()}</span>
-          </div>
-          <div className="overview-stat-chart">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={imgDaily} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-                <XAxis dataKey="date" hide />
-                <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
-                <Bar dataKey="ok" name="成功" stackId="g" fill={COLORS.purple} maxBarSize={14} />
-                <Bar dataKey="fail" name="失败" stackId="g" fill={COLORS.red} maxBarSize={14} radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="overview-stat-sub">{rangeLabel}</div>
-        </div>
-        {/* 视频生成 —— 成功/失败 堆叠迷你柱 */}
-        <div className="portkey-card overview-stat">
-          <div className="overview-stat-head">
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>视频生成任务数，分成功/失败。<div style={{ marginTop: '8px' }}><Modalities value={{ in: ['T'], out: 'V' }} /></div></div>} placement="top">
-              <span className="overview-stat-label card-title-hint">视频生成</span>
-            </ATooltip>
-            <span className="overview-stat-value">{totalVideo.toLocaleString()}</span>
-          </div>
-          <div className="overview-stat-chart">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={videoDaily} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-                <XAxis dataKey="date" hide />
-                <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
-                <Bar dataKey="ok" name="成功" stackId="g" fill={COLORS.cyan} maxBarSize={14} />
-                <Bar dataKey="fail" name="失败" stackId="g" fill={COLORS.red} maxBarSize={14} radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="overview-stat-sub">{rangeLabel}</div>
-        </div>
-      </div>
-
-      {/* 用量汇总 + 消费汇总 */}
-      <div className="dashboard-grid">
-        <XCard title="用量汇总" value={fmtM(totalToken)} subtitle="时间段内 Token 用量走势 (输入/缓存/输出)"
-          tip="Token 用量的走势，分输入/缓存/输出。"
-          modalities={['T', 'I', 'A', 'V']}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} ticks={AXIS_END_TICKS} interval={0} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={2} tickFormatter={v => (v / 1_000_000).toFixed(0) + 'M'} />
-              <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
-              <Bar dataKey="inputTokens" name="输入" stackId="t" fill={COLORS.blue} maxBarSize={30} />
-              <Bar dataKey="cacheTokens" name="缓存" stackId="t" fill={COLORS.cyan} maxBarSize={30} />
-              <Bar dataKey="outputTokens" name="输出" stackId="t" fill={COLORS.purple} maxBarSize={30} radius={[2, 2, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </XCard>
-
-        <XCard title="消费汇总" value={fmtCNY(totalSpend)} subtitle="时间段内消费金额走势"
-          tip="消费金额的走势。"
-          modalities={['T', 'I', 'A', 'V']}>
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorSpend" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={COLORS.green} stopOpacity={0.3} />
-                  <stop offset="95%" stopColor={COLORS.green} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} ticks={AXIS_END_TICKS} interval={0} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={2} tickFormatter={v => '¥' + v} />
-              <Tooltip content={<CustomTooltip unit=" 元" />} cursor={CROSSHAIR} />
-              <Area type="monotone" dataKey="spend" name="消费金额" stroke={COLORS.green} strokeWidth={2} fillOpacity={1} fill="url(#colorSpend)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </XCard>
-      </div>
-
-      {/* 按服务商分布 + 按模型分布 (费用/token 切换) */}
-      <div className="dashboard-grid">
-        <DistributionCard
-          title="按服务商分布" metric={provMetric} setMetric={setProvMetric} data={provData}
-          tip="消耗按上游服务商归因，可切换费用/Token 口径。"
-          modalities={['T', 'I', 'A', 'V']} />
-        <DistributionCard
-          title="按模型分布" metric={modelMetric} setMetric={setModelMetric} data={modelData}
-          tip="消耗按具体模型归因，可切换费用/Token 口径。"
-          modalities={['T', 'I', 'A', 'V']} />
-      </div>
-
-      {/* 消耗排行 —— 可下钻 (部门 → 用户 → API Key) · 费用/Token */}
       <div className="portkey-card" style={{ height: 'auto', padding: '20px 24px 24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>按部门 / 用户 / API Key 三个层级看消耗排行，可切换费用/Token 口径。<div style={{ marginTop: '8px' }}><Modalities value={['T', 'I', 'A', 'V']} /></div></div>} placement="top">
@@ -763,7 +727,6 @@ const CostView = () => {
           </div>
         </Modal>
       </div>
-    </div>
   );
 };
 
@@ -875,17 +838,10 @@ const CacheSavingsCard = () => {
   );
 };
 
-const CacheView = () => (
-  <div className="dashboard-grid">
-    <CacheHitCard />
-    <CacheSavingsCard />
-  </div>
-);
-// --- 2. Error Analytics ---
-const ErrorsView = () => {
+// --- 2. Error Analytics (各卡拆分为独立组件) ---
+const ErrorRateCard = () => {
   const rate = useBreakdown({ totalData: dailyData, totalKey: 'errorRate', totalName: '报错率', totalColor: COLORS.red, byModel: errorRateByModel, agg: 'avg', unit: '%', modalTitle: '报错率 · 按模型明细', valueFmt: v => v.toFixed(1) + '%' });
   return (
-  <div className="dashboard-grid">
     <XCard title="报错率" value="4.2%"
       tip="服务报错的请求占比。"
       modalities={['T', 'I', 'A', 'V']}
@@ -893,6 +849,9 @@ const ErrorsView = () => {
       {rate.chart}
       {rate.modal}
     </XCard>
+  );
+};
+const ErrorCountCard = () => (
     <XCard title="报错数量" value="850"
       tip="报错请求数，按 HTTP 状态码拆分。"
       modalities={['T', 'I', 'A', 'V']}>
@@ -909,6 +868,8 @@ const ErrorsView = () => {
         </BarChart>
       </ResponsiveContainer>
     </XCard>
+);
+const ErrorTypeCard = () => (
     <XCard title="报错类型分布" value="5 类"
       tip="报错请求按错误类型归类。"
       modalities={['T', 'I', 'A', 'V']}>
@@ -935,10 +896,7 @@ const ErrorsView = () => {
         </div>
       </div>
     </XCard>
-    <RescuedCard />
-  </div>
-  );
-};
+);
 
 // 挽救请求数卡 (抽为组件，供报错分析 Tab 与总览复用)
 const RescuedCard = () => (
@@ -993,13 +951,6 @@ const TtftCard = () => {
     </XCard>
   );
 };
-
-const LatencyView = () => (
-  <div className="dashboard-grid">
-    <LatencyCard />
-    <TtftCard />
-  </div>
-);
 
 // --- 5. Multimodal Analytics ---
 // 文本分段切换控件：用于「按模态趋势/模型排行」「模态标签」等卡内视图切换
@@ -1124,15 +1075,6 @@ const MmCostCard = () => (
       </BarChart>
     </ResponsiveContainer>
   </XCard>
-);
-
-const MultimodalView = () => (
-  <div className="dashboard-grid">
-    <MmCallCard />
-    <GenTypeCard />
-    <MmCostCard />
-    <GenTimeCard />
-  </div>
 );
 
 // =====================================================================
@@ -1412,77 +1354,395 @@ const FILTER_VALUE_OPTIONS = {
   resource: ['Desk · GPU 型', 'Desk · 标准型', 'Desk · 高内存型'],
 };
 
-// 可叠加筛选：选维度 -> 选/填值 -> 加为 chip。预设维度走可搜索下拉，开放维度回退文本输入
+// 可叠加筛选 (对齐 Figma「添加筛选选项弹窗」)：
+// 点击输入区弹出级联面板 —— 左列选维度，右列勾选值 (checkbox 多选)，选中即成 chip「维度/值 ×」
 const FilterBar = ({ filters, setFilters }) => {
-  const [draftDim, setDraftDim] = useState('');
-  const [draftVal, setDraftVal] = useState('');
+  const [open, setOpen] = useState(false);
+  const [dim, setDim] = useState('model');
 
-  const commit = (val) => {
-    const v = (val ?? draftVal).toString().trim();
-    if (!draftDim || !v) return;
-    const label = FILTER_DIMENSIONS.find(d => d.key === draftDim)?.label || draftDim;
-    setFilters(prev => [...prev, { id: Date.now(), key: draftDim, label, value: v }]);
-    setDraftDim('');
-    setDraftVal('');
-  };
   const removeFilter = (id) => setFilters(filters.filter(f => f.id !== id));
-
-  // 已选维度不再重复出现在下拉里；model 允许多选 (可叠加多个模型做对比)
-  const available = FILTER_DIMENSIONS.filter(d => d.key === 'model' || !filters.some(f => f.key === d.key));
-  const dimLabel = FILTER_DIMENSIONS.find(d => d.key === draftDim)?.label;
-  const usedVals = filters.filter(f => f.key === draftDim).map(f => f.value);
-  const presetVals = FILTER_VALUE_OPTIONS[draftDim];
-  const valueOptions = presetVals ? presetVals.filter(v => !usedVals.includes(v)) : undefined;
+  const isChecked = (dimKey, v) => filters.some(f => f.key === dimKey && f.value === v);
+  const toggleValue = (dimKey, v) => {
+    const label = FILTER_DIMENSIONS.find(d => d.key === dimKey)?.label || dimKey;
+    setFilters(prev => isChecked(dimKey, v)
+      ? prev.filter(f => !(f.key === dimKey && f.value === v))
+      : [...prev, { id: Date.now() + Math.random(), key: dimKey, label, value: v }]);
+  };
+  const dimCount = (dimKey) => filters.filter(f => f.key === dimKey).length;
+  const values = FILTER_VALUE_OPTIONS[dim] || [];
 
   return (
-    <div className="search-input-wrapper" style={{ flexWrap: 'wrap', gap: '6px' }}>
-      <SearchOutlined style={{ color: '#94a3b8' }} />
+    <div className="search-input-wrapper filter-bar-anchor" style={{ flexWrap: 'wrap', gap: '6px', position: 'relative' }}>
+      <FilterOutlined style={{ color: '#94a3b8' }} />
       {filters.map(f => (
         <span key={f.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '4px', padding: '2px 8px', fontSize: '13px', color: '#1e293b' }}>
-          <span style={{ color: '#64748b' }}>{f.label}:</span> {f.value}
-          <span onClick={() => removeFilter(f.id)} style={{ cursor: 'pointer', color: '#94a3b8', marginLeft: '2px', fontWeight: 600 }}>×</span>
+          <span style={{ color: '#64748b' }}>{f.label}/</span>{f.value}
+          <span onClick={(e) => { e.stopPropagation(); removeFilter(f.id); }} style={{ cursor: 'pointer', color: '#94a3b8', marginLeft: '2px', fontWeight: 600 }}>×</span>
         </span>
       ))}
-      {/* 1) 选维度 */}
-      <Select
-        size="small"
-        variant="borderless"
-        placeholder="+ 添加筛选"
-        value={draftDim || undefined}
-        onChange={(v) => { setDraftDim(v); setDraftVal(''); }}
-        options={available.map(d => ({ value: d.key, label: d.label }))}
-        style={{ minWidth: 104 }}
-        popupMatchSelectWidth={false}
-      />
-      {/* 2) 选值：预设维度走可搜索下拉；开放维度回退文本输入 */}
-      {draftDim && (valueOptions ? (
-        <Select
-          size="small"
-          showSearch
-          autoFocus
-          defaultOpen
-          placeholder={`选择 ${dimLabel}`}
-          options={valueOptions.map(v => ({ value: v, label: v }))}
-          onChange={(v) => commit(v)}
-          style={{ minWidth: 180 }}
-          popupMatchSelectWidth={false}
-          filterOption={(input, opt) => opt.label.toLowerCase().includes(input.toLowerCase())}
-        />
-      ) : (
-        <input
-          type="text"
-          autoFocus
-          value={draftVal}
-          onChange={e => setDraftVal(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && commit()}
-          onBlur={() => commit()}
-          placeholder={`输入 ${dimLabel} 值，回车添加`}
-          style={{ border: 'none', outline: 'none', fontSize: '14px', color: '#1e293b', flex: 1, minWidth: '160px' }}
-        />
-      ))}
+      <span onClick={() => setOpen(o => !o)} style={{ color: '#94a3b8', fontSize: '13px', cursor: 'pointer', flex: 1, minWidth: '120px' }}>
+        添加筛选选项
+      </span>
+      {filters.length > 0 && (
+        <span onClick={() => setFilters([])} title="清空全部筛选" style={{ cursor: 'pointer', color: '#94a3b8', fontWeight: 600, padding: '0 4px' }}>⊗</span>
+      )}
+      {open && (
+        <>
+          {/* 点击面板外区域关闭 */}
+          <div style={{ position: 'fixed', inset: 0, zIndex: 998 }} onClick={() => setOpen(false)} />
+          <div className="filter-panel">
+            <div className="filter-panel-dims">
+              {FILTER_DIMENSIONS.map(d => (
+                <div key={d.key} className={`filter-dim-item ${dim === d.key ? 'active' : ''}`} onClick={() => setDim(d.key)}>
+                  <span>{d.label}</span>
+                  {dimCount(d.key) > 0 && <CheckOutlined style={{ fontSize: '11px', color: COLORS.blue }} />}
+                </div>
+              ))}
+            </div>
+            <div className="filter-panel-values">
+              {values.map(v => (
+                <div key={v} className="filter-value-item" onClick={() => toggleValue(dim, v)}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v}</span>
+                  <Checkbox checked={isChecked(dim, v)} onClick={e => e.stopPropagation()} onChange={() => toggleValue(dim, v)} />
+                </div>
+              ))}
+              {values.length === 0 && <div style={{ padding: '16px', fontSize: '12px', color: '#94a3b8' }}>该维度暂无可选值</div>}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
+
+// ============================================================
+// 仪表盘自定义框架 —— 对应 Figma「可观测数据分析」页的交互:
+//   指标管理抽屉 / 自定义布局(编辑模式) / 保存保护 / 自定义分组 / 数据加载态
+// ============================================================
+
+// --- 指标注册表: key → 标题 / 所属分类 / 渲染组件 / 栅格类型 (kpi=4列小卡, main=2列图表卡, full=通栏) ---
+const METRICS = [
+  { key: 'available', title: '可用额度', cat: 'cost', grid: 'kpi', Comp: AvailableCard, desc: '可继续消费的实时余额，含赠金。' },
+  { key: 'recharge', title: '累计充值', cat: 'cost', grid: 'kpi', Comp: RechargeCard, desc: '账户开通至今的付费充值到账总额。' },
+  { key: 'consume', title: '累计消费', cat: 'cost', grid: 'kpi', Comp: ConsumeCard, desc: '账户开通至今的累计扣费总额。' },
+  { key: 'bonus', title: '赠金', cat: 'cost', grid: 'kpi', Comp: BonusCard, desc: '平台赠送的代金余额，优先抵扣。' },
+  { key: 'req', title: '请求数', cat: 'cost', grid: 'kpi', Comp: ReqStatCard, desc: '时间段内 API 请求总数及走势。' },
+  { key: 'token', title: '总 token', cat: 'cost', grid: 'kpi', Comp: TokenStatCard, desc: 'Token 消耗总量，分输入/缓存/输出。' },
+  { key: 'imgGen', title: '图片生成', cat: 'cost', grid: 'kpi', Comp: ImgGenStatCard, desc: '图片生成任务数，分成功/失败。' },
+  { key: 'videoGen', title: '视频生成', cat: 'cost', grid: 'kpi', Comp: VideoGenStatCard, desc: '视频生成任务数，分成功/失败。' },
+  { key: 'usage', title: '用量汇总', cat: 'cost', grid: 'main', Comp: UsageSummaryCard, desc: '时间段内 Token 用量走势 (输入/缓存/输出)。' },
+  { key: 'spendSum', title: '消费汇总', cat: 'cost', grid: 'main', Comp: SpendSummaryCard, desc: '时间段内消费金额走势。' },
+  { key: 'provDist', title: '按服务商分布', cat: 'cost', grid: 'main', Comp: ProviderDistCard, desc: '消耗按上游服务商归因，可切换费用/Token。' },
+  { key: 'modelDist', title: '按模型分布', cat: 'cost', grid: 'main', Comp: ModelDistCard, desc: '消耗按具体模型归因，可切换费用/Token。' },
+  { key: 'rank', title: '消耗排行', cat: 'cost', grid: 'full', Comp: ConsumeRankCard, desc: '按部门/用户/API Key 三级下钻的消耗排行。' },
+  { key: 'cacheHit', title: '缓存命中token数', cat: 'cache', grid: 'main', Comp: CacheHitCard, desc: '缓存命中的 Input Token 数与命中率。' },
+  { key: 'cacheSavings', title: '缓存节省成本', cat: 'cache', grid: 'main', Comp: CacheSavingsCard, desc: '命中缓存估算节省的累计金额。' },
+  { key: 'errorRate', title: '报错率', cat: 'errors', grid: 'main', Comp: ErrorRateCard, desc: '服务报错的请求占比走势。' },
+  { key: 'errorCount', title: '报错数量', cat: 'errors', grid: 'main', Comp: ErrorCountCard, desc: '报错请求数，按 HTTP 状态码拆分。' },
+  { key: 'errorType', title: '报错类型分布', cat: 'errors', grid: 'main', Comp: ErrorTypeCard, desc: '报错请求按错误类型归类占比。' },
+  { key: 'rescued', title: '挽救请求数', cat: 'errors', grid: 'main', Comp: RescuedCard, desc: 'Fallback 成功挽救的请求数。' },
+  { key: 'latency', title: '平均延迟', cat: 'latency', grid: 'main', Comp: LatencyCard, desc: '端到端延迟分位数 (P50/P95/P99)。' },
+  { key: 'ttft', title: '平均首字延迟 (TTFT)', cat: 'latency', grid: 'main', Comp: TtftCard, desc: '请求到首个 Token 返回的平均耗时。' },
+  { key: 'mmCall', title: '多模态调用量', cat: 'multimodal', grid: 'main', Comp: MmCallCard, desc: '多模态请求次数，按模态拆分。' },
+  { key: 'genType', title: '生成类型分布', cat: 'multimodal', grid: 'main', Comp: GenTypeCard, desc: '生成媒体类型占比 (图片/视频/音频)。' },
+  { key: 'mmCost', title: '多模态成本', cat: 'multimodal', grid: 'main', Comp: MmCostCard, desc: '各模态生成请求的实际扣费累加。' },
+  { key: 'genTime', title: '平均生成时长', cat: 'multimodal', grid: 'main', Comp: GenTimeCard, desc: '生成任务处理时长分位数，可按模态切换。' },
+];
+const METRIC_MAP = Object.fromEntries(METRICS.map(m => [m.key, m]));
+
+// 指标分类 (指标管理抽屉左侧导航)
+const CATS = [
+  { key: 'cost', label: '消耗分析' },
+  { key: 'cache', label: '缓存命中' },
+  { key: 'errors', label: '报错分析' },
+  { key: 'latency', label: '延迟分析' },
+  { key: 'multimodal', label: '多媒体模型' },
+];
+// 固定 Tab 与其默认指标列表 (列表顺序即渲染顺序)
+const COST_KEYS = ['available', 'recharge', 'consume', 'bonus', 'req', 'token', 'imgGen', 'videoGen', 'usage', 'spendSum', 'provDist', 'modelDist', 'rank'];
+const DEFAULT_LISTS = {
+  overview: [...COST_KEYS, 'cacheHit', 'cacheSavings', 'rescued', 'latency', 'ttft', 'genType', 'mmCost', 'genTime'],
+  cost: COST_KEYS,
+  cache: ['cacheHit', 'cacheSavings'],
+  errors: ['errorRate', 'errorCount', 'errorType', 'rescued'],
+  latency: ['latency', 'ttft'],
+  multimodal: ['mmCall', 'genType', 'mmCost', 'genTime'],
+};
+const FIXED_TABS = [
+  { key: 'overview', label: '总览', icon: <AppstoreOutlined /> },
+  { key: 'cost', label: '消耗分析', icon: <CreditCardOutlined /> },
+  { key: 'cache', label: '缓存命中', icon: <ThunderboltOutlined /> },
+  { key: 'errors', label: '报错分析', icon: <WarningOutlined /> },
+  { key: 'latency', label: '延迟分析', icon: <DashboardOutlined /> },
+  { key: 'multimodal', label: '多媒体模型', icon: <PlaySquareOutlined /> },
+];
+const TAB_LABEL = (dash, key) => FIXED_TABS.find(t => t.key === key)?.label || dash.groups.find(g => g.id === key)?.name || key;
+
+// 布局状态: lists (每个 tab/分组 的指标 key 列表) + sizes (卡片尺寸) + groups (自定义分组)
+const DEFAULT_DASH = { lists: DEFAULT_LISTS, sizes: {}, groups: [] };
+const cloneDash = (d) => JSON.parse(JSON.stringify(d));
+
+const DashboardContext = createContext(null);
+
+// --- 指标卡通用包装：编辑态勾选/卡片菜单 + 数据加载态 (loading / 失败重试) ---
+const MCard = ({ mkey }) => {
+  const ctx = useContext(DashboardContext);
+  const m = METRIC_MAP[mkey];
+  const { editMode, selected, toggleSelect, tabKey, dash, setCardSize, moveCard, removeCards, loadTick } = ctx;
+
+  // 数据加载模拟：刷新/切时间窗时转圈，小概率失败可重试 (对应 Figma「数据加载」帧)
+  const [load, setLoad] = useState('loading');
+  useEffect(() => {
+    let alive = true;
+    setLoad('loading');
+    const t = setTimeout(() => {
+      if (alive) setLoad(loadTick > 0 && Math.random() < 0.1 ? 'fail' : 'done');
+    }, 350 + Math.random() * 650);
+    return () => { alive = false; clearTimeout(t); };
+  }, [loadTick]);
+  const retry = () => { setLoad('loading'); setTimeout(() => setLoad('done'), 700); };
+
+  if (!m) return null;
+  const size = (dash.sizes[tabKey] || {})[mkey] || 'md';
+  const checked = selected.includes(mkey);
+
+  // 卡片菜单：小/中/大卡片视图 + 移动至 + 移除 (对应 Figma「编辑模式」卡片铅笔菜单)
+  const moveTargets = [
+    ...FIXED_TABS.filter(t => t.key !== tabKey).map(t => ({ key: `mv-${t.key}`, label: t.label })),
+    ...dash.groups.filter(g => g.id !== tabKey).map(g => ({ key: `mv-${g.id}`, label: g.name })),
+  ];
+  const menuItems = [
+    { key: 'size-sm', label: <span>小卡片视图 {size === 'sm' && <CheckOutlined style={{ marginLeft: 8 }} />}</span> },
+    { key: 'size-md', label: <span>中卡片视图 {size === 'md' && <CheckOutlined style={{ marginLeft: 8 }} />}</span> },
+    { key: 'size-lg', label: <span>大卡片视图 {size === 'lg' && <CheckOutlined style={{ marginLeft: 8 }} />}</span> },
+    { type: 'divider' },
+    { key: 'move', label: '移动至', children: moveTargets },
+    { type: 'divider' },
+    { key: 'remove', danger: true, label: '移除' },
+  ];
+  const onMenu = ({ key }) => {
+    if (key.startsWith('size-')) setCardSize(mkey, key.slice(5));
+    else if (key.startsWith('mv-')) moveCard([mkey], key.slice(3));
+    else if (key === 'remove') removeCards([mkey]);
+  };
+
+  const spanClass = size === 'lg' ? 'mcard-lg' : size === 'sm' ? 'mcard-sm' : '';
+  return (
+    <div className={`mcard ${spanClass} ${editMode ? 'mcard-editing' : ''}`}>
+      {editMode && (
+        <div className="mcard-chrome">
+          <Checkbox checked={checked} onChange={() => toggleSelect(mkey)} />
+          <span className="mcard-chrome-title">{m.title}</span>
+          <Dropdown menu={{ items: menuItems, onClick: onMenu }} trigger={['click']} placement="bottomRight">
+            <EditOutlined className="mcard-edit-icon" />
+          </Dropdown>
+        </div>
+      )}
+      <div className="mcard-body">
+        <m.Comp />
+        {load !== 'done' && (
+          <div className="mcard-loading">
+            {load === 'loading' ? (
+              <LoadingOutlined style={{ fontSize: '20px', color: COLORS.blue }} spin />
+            ) : (
+              <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>
+                <CloseOutlined style={{ fontSize: '16px', display: 'block', margin: '0 auto 6px' }} />
+                数据加载失败 <ReloadOutlined onClick={retry} style={{ cursor: 'pointer', color: COLORS.blue, marginLeft: '4px' }} />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// --- 指标栅格：把指标列表按栅格类型分段渲染 (kpi 4列 / main 2列 / full 通栏) ---
+const MetricGrid = ({ keys }) => {
+  const rows = [];
+  let cur = null;
+  keys.forEach(k => {
+    const g = METRIC_MAP[k]?.grid || 'main';
+    if (!cur || cur.g !== g) { cur = { g, items: [] }; rows.push(cur); }
+    cur.items.push(k);
+  });
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {rows.map((r, i) => r.g === 'full'
+        ? r.items.map(k => <MCard key={k} mkey={k} />)
+        : <div key={i} className={r.g === 'kpi' ? 'kpi-grid' : 'dashboard-grid'}>{r.items.map(k => <MCard key={k} mkey={k} />)}</div>)}
+    </div>
+  );
+};
+
+// --- 空态 (对应 Figma「分组缺省页」)：暂无看板内容 / 暂无匹配数据 ---
+const EmptyBoard = ({ onAdd, hasFilters, onClearFilters }) => (
+  <div style={{ display: 'flex', justifyContent: 'center', gap: '120px', padding: '80px 0' }}>
+    <div style={{ textAlign: 'center', color: '#94a3b8' }}>
+      <InboxOutlined style={{ fontSize: '44px', color: '#cbd5e1' }} />
+      <div style={{ color: '#1e293b', fontWeight: 600, fontSize: '14px', margin: '14px 0 6px' }}>暂无看板内容</div>
+      <div style={{ fontSize: '12px', lineHeight: 1.7 }}>当前还未添加任何指标组件<br />添加组件后即可查看对应维度的数据分析</div>
+      <Button size="small" style={{ marginTop: '14px' }} onClick={onAdd}>去添加组件 ↗</Button>
+    </div>
+    {hasFilters && (
+      <div style={{ textAlign: 'center', color: '#94a3b8' }}>
+        <InboxOutlined style={{ fontSize: '44px', color: '#cbd5e1' }} />
+        <div style={{ color: '#1e293b', fontWeight: 600, fontSize: '14px', margin: '14px 0 6px' }}>暂无匹配数据</div>
+        <div style={{ fontSize: '12px', lineHeight: 1.7 }}>当前筛选条件下无相关数据<br />建议调整筛选条件后重试</div>
+        <Button size="small" style={{ marginTop: '14px' }} onClick={onClearFilters}>清空筛选条件</Button>
+      </div>
+    )}
+  </div>
+);
+
+// --- 指标管理抽屉 (对应 Figma「指标管理」「指标管理-搜索」帧) ---
+const MetricsDrawer = ({ open, onClose }) => {
+  const ctx = useContext(DashboardContext);
+  const [q, setQ] = useState('');
+  const [cat, setCat] = useState('cost');
+  const list = ctx.dash.lists[ctx.tabKey] || [];
+  const kw = q.trim();
+  const shown = kw ? METRICS.filter(m => m.title.toLowerCase().includes(kw.toLowerCase())) : METRICS;
+  // 按分类分节展示；搜索时只显示命中的分类
+  const sections = CATS
+    .map(c => ({ ...c, items: shown.filter(m => m.cat === c.key) }))
+    .filter(s => s.items.length > 0 && (kw ? true : s.key === cat));
+  const added = (k) => list.includes(k);
+  return (
+    <Drawer title="指标管理" open={open} onClose={() => { setQ(''); onClose(); }} width={480} styles={{ body: { padding: '16px 20px' } }}>
+      <Input
+        allowClear prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+        placeholder="搜索指标名称" value={q} onChange={e => setQ(e.target.value)}
+        style={{ marginBottom: '16px' }}
+      />
+      <div style={{ display: 'flex', gap: '16px' }}>
+        <div style={{ width: '96px', flexShrink: 0 }}>
+          {CATS.map(c => (
+            <div key={c.key} onClick={() => { setCat(c.key); setQ(''); }}
+              className={`drawer-cat ${!kw && cat === c.key ? 'active' : ''}`}>{c.label}</div>
+          ))}
+        </div>
+        <div style={{ flex: 1, maxHeight: 'calc(100vh - 180px)', overflowY: 'auto' }}>
+          {sections.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '80px 0', color: '#94a3b8' }}>
+              <InboxOutlined style={{ fontSize: '40px', color: '#cbd5e1' }} />
+              <div style={{ marginTop: '12px', fontSize: '13px', color: '#1e293b', fontWeight: 600 }}>暂无匹配指标</div>
+              <div style={{ marginTop: '4px', fontSize: '12px' }}>请更换关键词后重新搜索</div>
+            </div>
+          )}
+          {sections.map(s => (
+            <div key={s.key} style={{ marginBottom: '12px' }}>
+              {kw && <div style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0 8px', textAlign: 'center' }}>—— {s.label} ——</div>}
+              {s.items.map(m => (
+                <div key={m.key} className={`drawer-metric ${added(m.key) ? 'added' : ''}`}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>{m.title}</div>
+                    <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{m.desc}</div>
+                  </div>
+                  {added(m.key) ? (
+                    <span className="drawer-metric-btn on" title="从当前看板移除" onClick={() => ctx.drawerRemove(m.key)}><CheckOutlined /></span>
+                  ) : (
+                    <span className="drawer-metric-btn" title="添加到当前看板" onClick={() => ctx.drawerAdd(m.key)}><PlusOutlined /></span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </Drawer>
+  );
+};
+
+// --- 分组管理弹窗 (对应 Figma「管理分组」「删除分组 二次确认」帧) ---
+const GroupManageModal = ({ open, onClose }) => {
+  const ctx = useContext(DashboardContext);
+  const [draft, setDraftGroups] = useState([]);
+  const [sel, setSel] = useState(null);
+  const [dragIdx, setDragIdx] = useState(null);
+  useEffect(() => {
+    if (open) {
+      const gs = cloneDash(ctx.dash.groups);
+      setDraftGroups(gs);
+      setSel(gs[0]?.id ?? null);
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const selGroup = draft.find(g => g.id === sel);
+  const create = () => {
+    const id = 'grp_' + Date.now();
+    const name = `自定义分组 ${draft.length + 1}`;
+    setDraftGroups([...draft, { id, name }]);
+    setSel(id);
+  };
+  const remove = (id) => {
+    const next = draft.filter(g => g.id !== id);
+    setDraftGroups(next);
+    if (sel === id) setSel(next[0]?.id ?? null);
+  };
+  const rename = (v) => setDraftGroups(draft.map(g => g.id === sel ? { ...g, name: v } : g));
+  const onDrop = (i) => {
+    if (dragIdx === null || dragIdx === i) return;
+    const next = [...draft];
+    const [moved] = next.splice(dragIdx, 1);
+    next.splice(i, 0, moved);
+    setDraftGroups(next);
+    setDragIdx(null);
+  };
+  const canSave = draft.every(g => g.name.trim().length > 0);
+  return (
+    <Modal title="分组管理" open={open} onCancel={onClose} width={640}
+      footer={[
+        <Button key="c" onClick={onClose}>取消</Button>,
+        <Button key="s" type="primary" disabled={!canSave} onClick={() => { ctx.saveGroups(draft); onClose(); }}>保存</Button>,
+      ]}>
+      <div style={{ display: 'flex', gap: '16px', minHeight: '260px', marginTop: '12px' }}>
+        <div style={{ width: '220px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {draft.map((g, i) => (
+            <div key={g.id} draggable
+              onDragStart={() => setDragIdx(i)} onDragOver={e => e.preventDefault()} onDrop={() => onDrop(i)}
+              onClick={() => setSel(g.id)}
+              className={`group-item ${sel === g.id ? 'active' : ''}`}>
+              <HolderOutlined style={{ color: '#94a3b8', cursor: 'grab' }} />
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.name || '未命名分组'}</span>
+              <Popconfirm
+                title="删除分组后"
+                description="组内所有指标看板会同步移除"
+                okText="删除" cancelText="取消" okButtonProps={{ danger: true }}
+                onConfirm={() => remove(g.id)}>
+                <CloseOutlined style={{ color: '#94a3b8', cursor: 'pointer', fontSize: '11px' }} onClick={e => e.stopPropagation()} />
+              </Popconfirm>
+            </div>
+          ))}
+          <Button type="dashed" icon={<PlusOutlined />} onClick={create} style={{ marginTop: '4px' }}>创建分组</Button>
+        </div>
+        <div style={{ flex: 1, background: '#f8fafc', borderRadius: '8px', padding: '16px' }}>
+          {selGroup ? (
+            <>
+              <div style={{ fontSize: '13px', marginBottom: '8px' }}>分组名称 <span style={{ color: '#ff4d4f' }}>*</span></div>
+              <Input value={selGroup.name} maxLength={15} showCount
+                onChange={e => rename(e.target.value)} placeholder="输入分组名称" />
+            </>
+          ) : (
+            <div style={{ color: '#94a3b8', fontSize: '13px', paddingTop: '40px', textAlign: 'center' }}>暂无分组，点击左侧「创建分组」新建</div>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+// --- 轻提示 (带撤销)，对应 Figma「尚未保存提醒」帧右侧的 toast ---
+const ToastStack = ({ toasts, onUndo, onClose }) => (
+  <div className="toast-stack">
+    {toasts.map(t => (
+      <div key={t.id} className="toast-item">
+        <span>{t.msg}</span>
+        {t.undo && <a onClick={() => onUndo(t)} style={{ marginLeft: '12px', fontWeight: 600 }}>撤销</a>}
+        <span className="toast-x" onClick={() => onClose(t.id)}>×</span>
+      </div>
+    ))}
+  </div>
+);
 
 const App = () => {
   // tab / 时间窗口默认保留：从 localStorage 恢复，手动刷新不会重置选中的 tab
@@ -1532,6 +1792,111 @@ const App = () => {
   });
   const [activeMenu, setActiveMenu] = useState('dashboard');
 
+  // ===== 仪表盘自定义布局 (指标管理 / 编辑模式 / 分组 / 加载态) =====
+  const [dash, setDash] = useState(() => {
+    try {
+      const s = localStorage.getItem('ob_dash_v1');
+      if (s) { const d = JSON.parse(s); if (d.lists && d.groups) return d; }
+    } catch { /* ignore */ }
+    return cloneDash(DEFAULT_DASH);
+  });
+  useEffect(() => { localStorage.setItem('ob_dash_v1', JSON.stringify(dash)); }, [dash]);
+
+  const [draft, setDraft] = useState(null);              // 编辑模式草稿 (null = 非编辑态)
+  const editMode = draft !== null;
+  const effDash = editMode ? draft : dash;
+  const dirty = editMode && JSON.stringify(draft) !== JSON.stringify(dash);
+  const [selected, setSelected] = useState([]);          // 编辑态勾选的卡片 key
+  const [drawerOpen, setDrawerOpen] = useState(false);   // 指标管理抽屉
+  const [groupOpen, setGroupOpen] = useState(false);     // 分组管理弹窗
+  const [unsavedOpen, setUnsavedOpen] = useState(false); // 「有未保存内容」确认
+  const [resetOpen, setResetOpen] = useState(false);     // 「重置默认布局」确认
+  const [toasts, setToasts] = useState([]);              // 带撤销的轻提示
+  const [loadTick, setLoadTick] = useState(0);           // 数据加载模拟 (刷新/切时间窗 +1)
+
+  // 当前 tab 可能是固定 tab 或自定义分组 id；分组被删除后回退到总览
+  const tabKey = (FIXED_TABS.some(t => t.key === activeTab) || effDash.groups.some(g => g.id === activeTab)) ? activeTab : 'overview';
+  const visibleKeys = effDash.lists[tabKey] || [];
+
+  const pushToast = (msg, undo) => {
+    const id = Date.now() + Math.random();
+    setToasts(ts => [...ts, { id, msg, undo }]);
+    setTimeout(() => setToasts(ts => ts.filter(t => t.id !== id)), 6000);
+  };
+  // 布局变更统一入口：编辑态写草稿，非编辑态直接生效；均支持 toast 撤销
+  const applyChange = (fn, msg) => {
+    const target = editMode ? draft : dash;
+    const before = cloneDash(target);
+    const setter = editMode ? setDraft : setDash;
+    setter(fn(cloneDash(target)));
+    if (msg) pushToast(msg, () => setter(before));
+  };
+  const titleOf = (keys) => keys.length === 1 ? `“${METRIC_MAP[keys[0]]?.title}”` : `${keys.length} 个指标`;
+
+  const dashApi = {
+    dash: effDash, editMode, tabKey, selected, loadTick,
+    toggleSelect: (k) => setSelected(s => s.includes(k) ? s.filter(x => x !== k) : [...s, k]),
+    setCardSize: (k, size) => applyChange(d => {
+      (d.sizes[tabKey] = d.sizes[tabKey] || {})[k] = size;
+      return d;
+    }),
+    moveCard: (keys, target) => {
+      applyChange(d => {
+        d.lists[tabKey] = (d.lists[tabKey] || []).filter(x => !keys.includes(x));
+        d.lists[target] = d.lists[target] || [];
+        keys.forEach(k => { if (!d.lists[target].includes(k)) d.lists[target].push(k); });
+        return d;
+      }, `已移动至“${TAB_LABEL(effDash, target)}”`);
+      setSelected(s => s.filter(x => !keys.includes(x)));
+    },
+    removeCards: (keys) => {
+      applyChange(d => {
+        d.lists[tabKey] = (d.lists[tabKey] || []).filter(x => !keys.includes(x));
+        return d;
+      }, `已移除${titleOf(keys)}`);
+      setSelected(s => s.filter(x => !keys.includes(x)));
+    },
+    drawerAdd: (k) => applyChange(d => {
+      d.lists[tabKey] = d.lists[tabKey] || [];
+      if (!d.lists[tabKey].includes(k)) d.lists[tabKey].push(k);
+      return d;
+    }, `已添加“${METRIC_MAP[k]?.title}”`),
+    drawerRemove: (k) => applyChange(d => {
+      d.lists[tabKey] = (d.lists[tabKey] || []).filter(x => x !== k);
+      return d;
+    }, `已移除“${METRIC_MAP[k]?.title}”`),
+    saveGroups: (nextGroups) => {
+      applyChange(d => {
+        const removed = d.groups.filter(g => !nextGroups.some(n => n.id === g.id));
+        removed.forEach(g => { delete d.lists[g.id]; delete d.sizes[g.id]; });
+        nextGroups.forEach(g => { d.lists[g.id] = d.lists[g.id] || []; });
+        d.groups = nextGroups;
+        return d;
+      }, '分组已保存');
+    },
+  };
+
+  // 编辑模式进入 / 保存 / 取消 (含未保存保护) / 重置默认布局
+  const enterEdit = () => { setDraft(cloneDash(dash)); setSelected([]); };
+  const saveEdit = () => { setDash(cloneDash(draft)); setDraft(null); setSelected([]); pushToast('布局已保存'); };
+  const cancelEdit = () => { if (dirty) setUnsavedOpen(true); else { setDraft(null); setSelected([]); } };
+  const discardEdit = () => { setDraft(null); setSelected([]); setUnsavedOpen(false); };
+  const doReset = () => {
+    setResetOpen(false);
+    applyChange(d => {
+      const next = cloneDash(DEFAULT_DASH);
+      next.groups = d.groups;
+      d.groups.forEach(g => { next.lists[g.id] = []; });
+      return next;
+    }, '已重置为默认布局');
+  };
+
+  // 「移动至」目标 (编辑工具栏 / 卡片菜单共用)
+  const moveTargets = [
+    ...FIXED_TABS.filter(t => t.key !== tabKey).map(t => ({ key: t.key, label: t.label })),
+    ...effDash.groups.filter(g => g.id !== tabKey).map(g => ({ key: g.id, label: g.name })),
+  ];
+
   const toggleGroup = (key) => {
     setCollapsedGroups(prev => ({ ...prev, [key]: !prev[key] }));
   };
@@ -1553,17 +1918,10 @@ const App = () => {
     return mapping[key] || key;
   };
 
-  const renderActiveView = () => {
-    switch (activeTab) {
-      case 'overview': return <OverviewView />;
-      case 'cost': return <CostView />;
-      case 'cache': return <CacheView />;
-      case 'errors': return <ErrorsView />;
-      case 'latency': return <LatencyView />;
-      case 'multimodal': return <MultimodalView />;
-      default: return <CostView />;
-    }
-  };
+  // 当前 tab 内容：空列表走缺省页 (对应 Figma「分组缺省页」)，否则按指标列表渲染
+  const renderActiveView = () => visibleKeys.length === 0
+    ? <EmptyBoard onAdd={() => setDrawerOpen(true)} hasFilters={filters.length > 0} onClearFilters={() => setFilters([])} />
+    : <MetricGrid keys={visibleKeys} />;
 
   const renderContent = () => {
     if (activeMenu === 'dashboard') {
@@ -1584,28 +1942,86 @@ const App = () => {
             </div>
           )}
           <header className="page-header">
-            <h1 className="page-title">仪表盘</h1>
+            {/* 标题行 + 右上角操作 (对应 Figma: 指标管理 / 自定义布局；编辑态换为 重置默认布局 / 取消 / 保存) */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+              <div>
+                <h1 className="page-title">仪表盘</h1>
+                <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>多维数据分析，自由玩转随心布局，自定义你的专属看板布局</div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                <Button icon={<UnorderedListOutlined />} onClick={() => setDrawerOpen(true)}>指标管理</Button>
+                {!editMode ? (
+                  <Button type="primary" icon={<EditOutlined />} onClick={enterEdit}>自定义布局</Button>
+                ) : (
+                  <>
+                    <Button onClick={() => setResetOpen(true)}>重置默认布局</Button>
+                    <Button onClick={cancelEdit}>取消</Button>
+                    <Button type="primary" onClick={saveEdit}>保存</Button>
+                  </>
+                )}
+              </div>
+            </div>
 
-            <div className="nav-tabs" style={{ overflowX: 'auto', paddingBottom: '2px' }}>
-              <div className={`nav-tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}><AppstoreOutlined /> 总览</div>
-              <div className={`nav-tab ${activeTab === 'cost' ? 'active' : ''}`} onClick={() => setActiveTab('cost')}><CreditCardOutlined /> 消耗分析</div>
-              <div className={`nav-tab ${activeTab === 'cache' ? 'active' : ''}`} onClick={() => setActiveTab('cache')}><ThunderboltOutlined /> 缓存命中</div>
-              <div className={`nav-tab ${activeTab === 'errors' ? 'active' : ''}`} onClick={() => setActiveTab('errors')}><WarningOutlined /> 报错分析</div>
-              <div className={`nav-tab ${activeTab === 'latency' ? 'active' : ''}`} onClick={() => setActiveTab('latency')}><DashboardOutlined /> 延迟分析</div>
-              <div className={`nav-tab ${activeTab === 'multimodal' ? 'active' : ''}`} onClick={() => setActiveTab('multimodal')}><PlaySquareOutlined /> 多媒体模型</div>
+            {/* tab 行：固定 tab + 自定义分组 tab + 分组管理入口；编辑态右侧出现批量工具栏 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div className="nav-tabs" style={{ overflowX: 'auto', paddingBottom: '2px', flex: 1, minWidth: 0 }}>
+                {FIXED_TABS.map(t => (
+                  <div key={t.key} className={`nav-tab ${tabKey === t.key ? 'active' : ''}`} onClick={() => setActiveTab(t.key)}>{t.icon} {t.label}</div>
+                ))}
+                {effDash.groups.map(g => (
+                  <div key={g.id} className={`nav-tab ${tabKey === g.id ? 'active' : ''}`} onClick={() => setActiveTab(g.id)}><TagOutlined /> {g.name}</div>
+                ))}
+                <div className="nav-tab" title="管理分组" onClick={() => setGroupOpen(true)}><EditOutlined /></div>
+              </div>
+              {editMode && (
+                <div className="edit-toolbar">
+                  <Checkbox
+                    checked={visibleKeys.length > 0 && selected.length === visibleKeys.length}
+                    indeterminate={selected.length > 0 && selected.length < visibleKeys.length}
+                    onChange={e => setSelected(e.target.checked ? [...visibleKeys] : [])}>全选</Checkbox>
+                  <span style={{ color: '#64748b', fontSize: '12px', whiteSpace: 'nowrap' }}>已选 {selected.length}</span>
+                  <Dropdown disabled={!selected.length} trigger={['click']}
+                    menu={{ items: moveTargets, onClick: ({ key }) => dashApi.moveCard(selected, key) }}>
+                    <Button size="small" disabled={!selected.length}>移动</Button>
+                  </Dropdown>
+                  <Button size="small" danger disabled={!selected.length} onClick={() => dashApi.removeCards(selected)}>移除</Button>
+                </div>
+              )}
             </div>
           </header>
 
           <main className="main-content">
             <div className="filters-bar">
-              <button style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', color: '#10b981' }}>
+              <button title="刷新数据" onClick={() => setLoadTick(t => t + 1)}
+                style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', color: '#10b981' }}>
                 <SyncOutlined />
               </button>
               <FilterBar filters={filters} setFilters={setFilters} />
-              <TimeFilter selected={timeRange} setSelected={setTimeRange} customRange={customRange} setCustomRange={setCustomRange} />
+              <TimeFilter selected={timeRange}
+                setSelected={(v) => { setTimeRange(v); setLoadTick(t => t + 1); }}
+                customRange={customRange}
+                setCustomRange={(d) => { setCustomRange(d); setLoadTick(t => t + 1); }} />
             </div>
             {renderActiveView()}
           </main>
+
+          {/* 指标管理抽屉 / 分组管理 / 未保存提醒 / 重置确认 */}
+          <MetricsDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+          <GroupManageModal open={groupOpen} onClose={() => setGroupOpen(false)} />
+          <Modal title="有未保存内容" open={unsavedOpen} onCancel={() => setUnsavedOpen(false)} width={400}
+            footer={[
+              <Button key="d" onClick={discardEdit}>放弃</Button>,
+              <Button key="k" type="primary" onClick={() => setUnsavedOpen(false)}>继续编辑</Button>,
+            ]}>
+            当前指标卡片修改尚未保存，退出会清空所有改动
+          </Modal>
+          <Modal title="重置默认布局" open={resetOpen} onCancel={() => setResetOpen(false)} width={400}
+            footer={[
+              <Button key="c" onClick={() => setResetOpen(false)}>取消</Button>,
+              <Button key="r" type="primary" onClick={doReset}>确认重置</Button>,
+            ]}>
+            重置后将恢复为系统默认的卡片排版，您当前自定义的布局将被清除
+          </Modal>
         </div>
       );
     } else {
@@ -1623,6 +2039,7 @@ const App = () => {
     <TimeRangeContext.Provider value={rangeLabel}>
       <FilterContext.Provider value={activeModels}>
       <FiltersContext.Provider value={filters}>
+      <DashboardContext.Provider value={dashApi}>
       <div className="layout-shell">
         {/* Sidebar */}
         <aside className="layout-sidebar">
@@ -1751,6 +2168,11 @@ const App = () => {
           </div>
         </div>
       </div>
+      {/* 操作轻提示 (带撤销) */}
+      <ToastStack toasts={toasts}
+        onUndo={(t) => { t.undo && t.undo(); setToasts(ts => ts.filter(x => x.id !== t.id)); }}
+        onClose={(id) => setToasts(ts => ts.filter(t => t.id !== id))} />
+      </DashboardContext.Provider>
       </FiltersContext.Provider>
       </FilterContext.Provider>
     </TimeRangeContext.Provider>

@@ -572,3 +572,117 @@ body {
   display: flex;
   flex-direction: column;
 }
+
+/* ============================================================
+   仪表盘自定义框架 (指标管理 / 编辑模式 / 分组 / 加载态 / 筛选面板)
+   ============================================================ */
+
+/* KPI 行 4 列栅格 */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+/* 指标卡包装：编辑态 chrome + 加载遮罩定位
+   注意：不要在这里覆盖卡片高度 —— .portkey-card 自带固定高度，
+   若强制 height:100% 会因父级未定高而塌陷，导致 ResponsiveContainer 图表 0 高不渲染 */
+.mcard { position: relative; min-width: 0; }
+.mcard-body { position: relative; }
+/* 卡片尺寸：大卡通栏、小卡压缩高度 */
+.dashboard-grid .mcard-lg, .kpi-grid .mcard-lg { grid-column: 1 / -1; }
+.mcard-sm .portkey-card { height: 280px; }
+.mcard-sm.mcard .overview-stat { height: auto; }
+
+/* 编辑态：顶部勾选条 + 内容禁交互 */
+.mcard-editing { border: 1px dashed #cbd5e1; border-radius: 14px; padding: 6px; background: #fff; }
+.mcard-editing .mcard-body { pointer-events: none; opacity: 0.9; }
+.mcard-chrome {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 6px 8px;
+}
+.mcard-chrome-title { flex: 1; font-size: 12px; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mcard-edit-icon { color: #94a3b8; cursor: pointer; padding: 2px; }
+.mcard-edit-icon:hover { color: #1677ff; }
+
+/* 数据加载遮罩：转圈 / 失败重试 */
+.mcard-loading {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 12px;
+}
+
+/* 编辑批量工具栏 (tab 行右侧) */
+.edit-toolbar {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  padding: 4px 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff;
+}
+
+/* 指标管理抽屉 */
+.drawer-cat {
+  padding: 8px 10px; font-size: 13px; color: #64748b;
+  border-radius: 6px; cursor: pointer; margin-bottom: 2px;
+}
+.drawer-cat:hover { background: #f1f5f9; }
+.drawer-cat.active { background: #eff6ff; color: #1677ff; font-weight: 600; }
+.drawer-metric {
+  display: flex; align-items: flex-start; gap: 10px;
+  border: 1px solid #eef1f5; border-radius: 8px;
+  padding: 10px 12px; margin-bottom: 8px;
+  transition: border-color .15s;
+}
+.drawer-metric:hover { border-color: #bfdbfe; }
+.drawer-metric.added { border-color: #dbeafe; background: #fafcff; }
+.drawer-metric-btn {
+  flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid #e2e8f0; color: #64748b; cursor: pointer; font-size: 11px;
+}
+.drawer-metric-btn:hover { border-color: #1677ff; color: #1677ff; }
+.drawer-metric-btn.on { background: #1e293b; border-color: #1e293b; color: #fff; }
+
+/* 分组管理弹窗条目 */
+.group-item {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid #eef1f5; border-radius: 8px;
+  padding: 8px 10px; font-size: 13px; cursor: pointer; background: #fff;
+}
+.group-item:hover { border-color: #cbd5e1; }
+.group-item.active { border-color: #1677ff; background: #eff6ff; }
+
+/* 筛选级联面板 */
+.filter-panel {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 999;
+  display: flex; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+}
+.filter-panel-dims { width: 128px; border-right: 1px solid #f1f5f9; padding: 6px; }
+.filter-dim-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 10px; font-size: 13px; color: #1e293b; border-radius: 6px; cursor: pointer;
+}
+.filter-dim-item:hover { background: #f8fafc; }
+.filter-dim-item.active { background: #f1f5f9; font-weight: 600; }
+.filter-panel-values { width: 240px; max-height: 280px; overflow-y: auto; padding: 6px; }
+.filter-value-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 7px 10px; font-size: 13px; border-radius: 6px; cursor: pointer;
+}
+.filter-value-item:hover { background: #f8fafc; }
+
+/* 轻提示 (带撤销) */
+.toast-stack {
+  position: fixed; top: 72px; right: 24px; z-index: 1100;
+  display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
+}
+.toast-item {
+  display: flex; align-items: center;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+  padding: 9px 14px; font-size: 13px; color: #1e293b;
+  animation: toast-in .18s ease-out;
+}
+.toast-item .toast-x { margin-left: 12px; color: #94a3b8; cursor: pointer; font-weight: 600; }
+@keyframes toast-in { from { transform: translateY(-6px); opacity: 0; } to { transform: none; opacity: 1; } }
