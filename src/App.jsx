@@ -1508,7 +1508,7 @@ const MCard = ({ mkey }) => {
   const retry = () => { setLoad('loading'); setTimeout(() => setLoad('done'), 700); };
 
   if (!m) return null;
-  const size = (dash.sizes[tabKey] || {})[mkey] || 'md';
+  const size = (dash.sizes[tabKey] || {})[mkey] || DEFAULT_SIZE[m.grid] || 'md';
   const checked = selected.includes(mkey);
 
   // 卡片菜单：小/中/大卡片视图 + 移动至 + 移除 (对应 Figma「编辑模式」卡片铅笔菜单)
@@ -1675,8 +1675,10 @@ const GroupManageModal = ({ open, onClose }) => {
   const selGroup = draft.find(g => g.id === sel);
   const create = () => {
     const id = 'grp_' + Date.now();
-    const name = `自定义分组 ${draft.length + 1}`;
-    setDraftGroups([...draft, { id, name }]);
+    // 默认名称顺延：自定义分组 1、自定义分组 2 …，跳过已被占用的名称（分组名称不可重复）
+    let n = 1;
+    while (draft.some(g => g.name.trim() === `自定义分组 ${n}`)) n++;
+    setDraftGroups([...draft, { id, name: `自定义分组 ${n}` }]);
     setSel(id);
   };
   const remove = (id) => {
@@ -1849,14 +1851,27 @@ const App = () => {
       (d.sizes[tabKey] = d.sizes[tabKey] || {})[k] = size;
       return d;
     }),
+    // 移动规则：目标分组已存在同一组件 → 移动失败并提示；其余卡片移动到目标分组末尾，
+    // 并保留其在源分组的尺寸规格（各分组尺寸独立，同一指标在不同分组尺寸不同无需额外处理）
     moveCard: (keys, target) => {
-      applyChange(d => {
-        d.lists[tabKey] = (d.lists[tabKey] || []).filter(x => !keys.includes(x));
-        d.lists[target] = d.lists[target] || [];
-        keys.forEach(k => { if (!d.lists[target].includes(k)) d.lists[target].push(k); });
-        return d;
-      }, `已移动至“${TAB_LABEL(effDash, target)}”`);
-      setSelected(s => s.filter(x => !keys.includes(x)));
+      const targetList = effDash.lists[target] || [];
+      const dup = keys.filter(k => targetList.includes(k));
+      const ok = keys.filter(k => !targetList.includes(k));
+      if (dup.length) pushToast('移动失败，指标组件已存在于目标分组');
+      if (ok.length) {
+        applyChange(d => {
+          d.lists[tabKey] = (d.lists[tabKey] || []).filter(x => !ok.includes(x));
+          d.lists[target] = d.lists[target] || [];
+          d.sizes[target] = d.sizes[target] || {};
+          ok.forEach(k => {
+            d.lists[target].push(k); // 位置处于目标分组最后
+            const s = (d.sizes[tabKey] || {})[k];
+            if (s) d.sizes[target][k] = s; // 保留卡片尺寸规格
+          });
+          return d;
+        }, `已移动至“${TAB_LABEL(effDash, target)}”`);
+        setSelected(s => s.filter(x => !ok.includes(x)));
+      }
     },
     removeCards: (keys) => {
       applyChange(d => {
