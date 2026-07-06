@@ -1452,6 +1452,8 @@ const METRICS = [
   { key: 'genTime', title: '平均生成时长', cat: 'multimodal', grid: 'main', Comp: GenTimeCard, desc: '生成任务处理时长分位数，可按模态切换。' },
 ];
 const METRIC_MAP = Object.fromEntries(METRICS.map(m => [m.key, m]));
+// 默认尺寸规则：消耗分析数字型卡片(kpi)默认小尺寸，图表型(main)默认中尺寸，消耗排行(full)默认大尺寸
+const DEFAULT_SIZE = { kpi: 'sm', main: 'md', full: 'lg' };
 
 // 指标分类 (指标管理抽屉左侧导航)
 const CATS = [
