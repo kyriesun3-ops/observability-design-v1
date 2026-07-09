@@ -355,6 +355,14 @@ const TimeFilter = ({ selected, setSelected, customRange, setCustomRange }) => (
         value={customRange}
         onChange={(dates) => setCustomRange(dates)}
         style={{ borderRadius: '6px', border: '1px solid #e2e8f0' }}
+        // 防止层：3 年保留期之外及未来日期直接置灰，非法区间在选择阶段即不可达
+        disabledDate={(d) => d.isBefore(retentionStart()) || d.isAfter(dayjs().endOf('day'))}
+        // 解释层：弹层底部说明置灰原因，避免被误认为异常
+        renderExtraFooter={() => (
+          <div style={{ fontSize: '12px', color: '#94a3b8', padding: '4px 8px' }}>
+            仅支持查询最近 {RETENTION_YEARS} 年数据（{retentionStart().format('YYYY-MM-DD')} 起）
+          </div>
+        )}
       />
     )}
     <div className="time-seg">
