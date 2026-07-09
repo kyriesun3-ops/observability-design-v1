@@ -1770,6 +1770,10 @@ const ToastStack = ({ toasts, onUndo, onClose }) => (
   </div>
 );
 
+// 兜底层：从 localStorage 恢复自定义区间时，保留期每天滚动，历史上合法的区间可能已越界。
+// 越界产生的提示先暂存在此，挂载后由 useEffect 经 message 弹出（红线：绝不静默显示截断后的部分数据）
+let restoreRangeNotice = null;
+
 const App = () => {
   // tab / 时间窗口默认保留：从 localStorage 恢复，手动刷新不会重置选中的 tab
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('ob_activeTab') || 'overview');
@@ -1783,7 +1787,19 @@ const App = () => {
     if (stored) {
       try {
         const arr = JSON.parse(stored);
-        return [dayjs(arr[0]), dayjs(arr[1])];
+        const [s, e] = [dayjs(arr[0]), dayjs(arr[1])];
+        const min = retentionStart();
+        // 完全越界：清空区间，提示重新选择（时间窗仍停留在「自定义」，引导用户重选）
+        if (e.isBefore(min)) {
+          restoreRangeNotice = `上次的自定义时间范围已超出 ${RETENTION_YEARS} 年数据保留期，请重新选择`;
+          return null;
+        }
+        // 部分越界：起始日截断到最早可查日期，并明确告知（不静默展示部分数据）
+        if (s.isBefore(min)) {
+          restoreRangeNotice = `起始日期已超出 ${RETENTION_YEARS} 年数据保留期，已调整为 ${min.format('YYYY-MM-DD')}`;
+          return [min, e];
+        }
+        return [s, e];
       } catch {
         return null;
       }
