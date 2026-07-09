@@ -11,7 +11,7 @@ import { ThunderboltOutlined, WarningOutlined, SafetyCertificateOutlined,
   EditOutlined, PlusOutlined, CheckOutlined, CloseOutlined, HolderOutlined,
   LoadingOutlined, ReloadOutlined, TagOutlined, UnorderedListOutlined,
   FilterOutlined, InboxOutlined, KeyOutlined } from '@ant-design/icons';
-import { Table, Tooltip as ATooltip, Modal, DatePicker, Drawer, Dropdown, Checkbox, Popconfirm, Input, Button } from 'antd';
+import { Table, Tooltip as ATooltip, Modal, DatePicker, Drawer, Dropdown, Checkbox, Popconfirm, Input, Button, message } from 'antd';
 import dayjs from 'dayjs';
 
 // --- 格式化工具 ---
@@ -328,6 +328,11 @@ const CustomTooltip = ({ active, payload, label, unit }) => {
   }
   return null;
 };
+
+// --- 数据保留期：仅支持查询最近 3 年数据 ---
+// 口径待与后端确认：当前按「自然日往前滚动 3 年」计算边界（今天 - 3 年，取当日 0 点）
+const RETENTION_YEARS = 3;
+const retentionStart = () => dayjs().startOf('day').subtract(RETENTION_YEARS, 'year');
 
 // --- TIME FILTER COMPONENT (对齐 Figma: 分段按钮 近1小时/近1天/近1月/自定义，选中项深色描边) ---
 const timeOptions = [
@@ -1695,7 +1700,9 @@ const GroupManageModal = ({ open, onClose }) => {
     setDraftGroups(next);
     setDragIdx(null);
   };
-  const canSave = draft.every(g => g.name.trim().length > 0);
+  // 分组名称不可重复（忽略首尾空格）；重名或空名时禁止保存
+  const isDupName = (g) => draft.some(o => o.id !== g.id && o.name.trim() === g.name.trim() && g.name.trim());
+  const canSave = draft.every(g => g.name.trim().length > 0 && !isDupName(g));
   return (
     <Modal title="分组管理" open={open} onCancel={onClose} width={640}
       footer={[
@@ -1727,7 +1734,11 @@ const GroupManageModal = ({ open, onClose }) => {
             <>
               <div style={{ fontSize: '13px', marginBottom: '8px' }}>分组名称 <span style={{ color: '#ff4d4f' }}>*</span></div>
               <Input value={selGroup.name} maxLength={15} showCount
+                status={isDupName(selGroup) ? 'error' : undefined}
                 onChange={e => rename(e.target.value)} placeholder="输入分组名称" />
+              {isDupName(selGroup) && (
+                <div style={{ color: '#ff4d4f', fontSize: '12px', marginTop: '4px' }}>分组名称不可重复，请修改后再保存</div>
+              )}
             </>
           ) : (
             <div style={{ color: '#94a3b8', fontSize: '13px', paddingTop: '40px', textAlign: 'center' }}>暂无分组，点击左侧「创建分组」新建</div>
