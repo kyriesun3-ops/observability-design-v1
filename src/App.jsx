@@ -773,60 +773,6 @@ const ConsumeRankCard = () => {
   );
 };
 
-// 分布卡片：服务商/模型通用,支持费用(¥)/Token 切换
-const DistributionCard = ({ title, metric, setMetric, data, tip, modalities }) => {
-  const rangeLabel = useContext(TimeRangeContext);
-  const total = data.reduce((s, d) => s + d[metric], 0);
-  return (
-    <div className="portkey-card">
-      <div className="card-header">
-        {/* 对齐 OneLink：加粗标题 + 右侧 费用/Token 分段切换，不再展示大总数 */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div className="card-title card-title--lg" style={{ marginBottom: 0 }}>
-            <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6, maxWidth: '260px' }}>{tip}{modalities && <div style={{ marginTop: '8px' }}><Modalities value={modalities} /></div>}</div>} placement="top">
-              <span className="card-title-hint">{title}</span>
-            </ATooltip>
-          </div>
-          <div style={{ display: 'flex', border: `1px solid ${COLORS.gray}`, borderRadius: '6px', overflow: 'hidden', fontSize: '12px' }}>
-            {[['cost', '费用'], ['tokens', 'Token']].map(([k, lbl]) => (
-              <span key={k} onClick={() => setMetric(k)}
-                style={{ padding: '3px 10px', cursor: 'pointer', background: metric === k ? COLORS.blue : '#fff', color: metric === k ? '#fff' : COLORS.textMuted }}>
-                {lbl}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className="card-subtitle" style={{ marginTop: '6px' }}>{rangeLabel}</div>
-      </div>
-      <div className="card-body">
-        <div style={{ display: 'flex', height: '100%', alignItems: 'center' }}>
-          <div style={{ flex: 1, position: 'relative', height: '100%' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={data} cx="50%" cy="50%" innerRadius="50%" outerRadius="80%" paddingAngle={2} dataKey={metric} nameKey="name" stroke="none">
-                  {data.map((entry, idx) => (
-                    <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip unit={metric === 'cost' ? ' 元' : ' 个'} />} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div style={{ width: '160px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            {data.map((item, idx) => (
-              <div key={item.name} style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: PIE_COLORS[idx % PIE_COLORS.length] }}></div>
-                <div style={{ fontSize: '11px', color: COLORS.textMain }}>{item.name}</div>
-                <div style={{ fontSize: '11px', color: COLORS.textLight, marginLeft: 'auto' }}>{((item[metric] / total) * 100).toFixed(0)}%</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // --- 1. Cache Analytics ---
 // 缓存命中token数卡 (抽为组件，供缓存命中 Tab 与总览复用，样式完全一致)
 const CacheHitCard = () => {
