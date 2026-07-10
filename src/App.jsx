@@ -343,7 +343,7 @@ const retentionStart = () => dayjs().startOf('day').subtract(RETENTION_YEARS, 'y
 const timeOptions = [
   { label: '近1小时', value: '1h' },
   { label: '近1天', value: '24h' },
-  { label: '近1月', value: '30d' },
+  { label: '近30天', value: '30d' },
   { label: '自定义', value: 'custom' },
 ];
 
