@@ -1148,22 +1148,17 @@ const MM_GEN_MODELS = ['image', 'audio', 'video'].flatMap(
 
 const LINE_PALETTE = [COLORS.blue, COLORS.purple, COLORS.cyan, COLORS.orange, COLORS.green, COLORS.red];
 
-// 取 Top N 模型 (按窗口内累计排序)，其余聚合为「其他」一条；avg 指标的「其他」取均值
-const topNWithOther = (series, n = 5, agg = 'sum') => {
+// 取 Top N 模型 (按窗口内累计排序)，只展示 Top N，不聚合「其他」
+const topN = (series, n = 5) => {
   const models = Object.keys(series[0]).filter(k => k !== 'date');
   const totals = models.map(m => [m, series.reduce((s, r) => s + r[m], 0)]).sort((a, b) => b[1] - a[1]);
   const top = totals.slice(0, n).map(t => t[0]);
-  const rest = totals.slice(n).map(t => t[0]);
   const data = series.map(r => {
     const row = { date: r.date };
     top.forEach(m => { row[m] = r[m]; });
-    if (rest.length) {
-      const s = rest.reduce((a, m) => a + r[m], 0);
-      row['其他'] = +(agg === 'avg' ? s / rest.length : s).toFixed(1);
-    }
     return row;
   });
-  return { data, keys: rest.length ? [...top, '其他'] : top };
+  return { data, keys: top };
 };
 
 const renderKeyedLines = (keys) => keys.map((k, i) => (
