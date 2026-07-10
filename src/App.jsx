@@ -555,19 +555,56 @@ const SpendSummaryCard = () => (
   </SummaryCard>
 );
 
-// --- 按服务商 / 按模型分布 (独立组件, 内部维护 费用/Token 切换) ---
-const ProviderDistCard = () => {
-  const [metric, setMetric] = useState('cost');
-  const data = [...providerSpendData].sort((a, b) => b[metric] - a[metric]);
-  return <DistributionCard title="按服务商分布" metric={metric} setMetric={setMetric} data={data}
-    tip="消耗按上游服务商归因，可切换费用/Token 口径。" modalities={['T', 'I', 'A', 'V']} />;
+// --- 按服务商 / 按模型分布 (完全复刻 OneLink 总览：加粗标题 + 费用/Token 分段切换 + 空态图) ---
+// 分段切换：选中项实色填充白字，未选中白底灰字
+const MetricToggle = ({ metric, setMetric }) => (
+  <div style={{ display: 'flex', border: `1px solid ${COLORS.gray}`, borderRadius: '8px', overflow: 'hidden', fontSize: '13px' }}>
+    {[['cost', '费用'], ['tokens', 'Token']].map(([k, lbl]) => (
+      <span key={k} onClick={() => setMetric(k)}
+        style={{ padding: '5px 16px', cursor: 'pointer', background: metric === k ? COLORS.blue : '#fff', color: metric === k ? '#fff' : COLORS.textMuted }}>
+        {lbl}
+      </span>
+    ))}
+  </div>
+);
+
+const DistCard = ({ title, defaultMetric, children }) => {
+  const [metric, setMetric] = useState(defaultMetric);
+  return (
+    <div className="portkey-card">
+      <div className="card-header">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+          <div className="card-title card-title--lg" style={{ marginBottom: 0 }}>{title}</div>
+          <MetricToggle metric={metric} setMetric={setMetric} />
+        </div>
+      </div>
+      <div className="card-body">{children}</div>
+    </div>
+  );
 };
-const ModelDistCard = () => {
-  const [metric, setMetric] = useState('cost');
-  const data = [...modelSpendData].sort((a, b) => b[metric] - a[metric]);
-  return <DistributionCard title="按模型分布" metric={metric} setMetric={setMetric} data={data}
-    tip="消耗按具体模型归因，可切换费用/Token 口径。" modalities={['T', 'I', 'A', 'V']} />;
-};
+
+// 按服务商分布：空态灰色环形图，居中
+const ProviderDistCard = () => (
+  <DistCard title="按服务商分布" defaultMetric="cost">
+    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: '220px', height: '220px', borderRadius: '50%', border: '36px solid #d4d4d8' }} />
+    </div>
+  </DistCard>
+);
+
+// 按模型分布：空态横向条形图区 —— 浅绿占位横带 + 0~1 虚线纵向网格
+const ModelDistCard = () => (
+  <DistCard title="按模型分布" defaultMetric="tokens">
+    <div style={{ position: 'relative', height: '100%', margin: '8px 6px 24px' }}>
+      <div style={{ position: 'absolute', left: 0, right: 0, top: '10%', bottom: '28%', background: '#e9f6ee' }} />
+      {[0, 0.2, 0.4, 0.6, 0.8, 1].map(t => (
+        <div key={t} style={{ position: 'absolute', left: `${t * 100}%`, top: 0, bottom: 0, borderLeft: '1px dashed #e2e8f0' }}>
+          <span style={{ position: 'absolute', bottom: '-22px', left: '50%', transform: 'translateX(-50%)', fontSize: '11px', color: COLORS.textLight }}>{t}</span>
+        </div>
+      ))}
+    </div>
+  </DistCard>
+);
 
 // --- 消耗排行 (可下钻: 部门 → 用户 → API Key) ---
 const ConsumeRankCard = () => {
