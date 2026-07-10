@@ -267,7 +267,7 @@ const Modalities = ({ value }) => {
   );
 };
 
-const XCard = ({ title, value, subtitle, tip, modalities, extra, control, children }) => {
+const XCard = ({ title, value, badge, subtitle, tip, modalities, extra, control, children }) => {
   const rangeLabel = useContext(TimeRangeContext);
   const hasHint = tip || modalities;
   const hintContent = hasHint ? (
@@ -279,9 +279,9 @@ const XCard = ({ title, value, subtitle, tip, modalities, extra, control, childr
   return (
     <div className="portkey-card">
       <div className="card-header">
-        {/* 标题行：标题(hover 浮显说明) + 右侧展开图标，与标题对齐 */}
+        {/* 标题行：标题(hover 浮显说明) + 右侧数值角标(badge 模式, 对齐 OneLink) / 展开图标 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-          <div className="card-title" style={{ marginBottom: 0 }}>
+          <div className={`card-title ${badge != null ? 'card-title--lg' : ''}`} style={{ marginBottom: 0 }}>
             {hasHint ? (
               <ATooltip title={hintContent} placement="top">
                 <span className="card-title-hint">{title}</span>
@@ -290,15 +290,20 @@ const XCard = ({ title, value, subtitle, tip, modalities, extra, control, childr
               <span>{title}</span>
             )}
           </div>
-          {extra}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {badge != null && <span className="card-badge">{badge}</span>}
+            {extra}
+          </div>
         </div>
-        {/* 数值行：大数字 + 右侧控件(总览/按模型 等)，与数字中间对齐 */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', margin: '6px 0 2px' }}>
-          <div className="card-value" style={{ marginBottom: 0 }}>{value}</div>
-          {control}
-        </div>
+        {/* 数值行：大数字 + 右侧控件(总览/按模型 等)，与数字中间对齐；badge 模式下不展示大数字 */}
+        {badge == null && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', margin: '6px 0 2px' }}>
+            <div className="card-value" style={{ marginBottom: 0 }}>{value}</div>
+            {control}
+          </div>
+        )}
         {/* 副标题：数据来源时间区间，或卡片自定义副标题 */}
-        <div className="card-subtitle">{subtitle || rangeLabel}</div>
+        <div className="card-subtitle" style={badge != null ? { marginTop: '6px' } : undefined}>{subtitle || rangeLabel}</div>
       </div>
       <div className="card-body">
         {children}
