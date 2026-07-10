@@ -605,6 +605,10 @@ body {
 .dashboard-grid .mcard-lg, .kpi-grid .mcard-lg { grid-column: 1 / -1; }
 .mcard-sm .portkey-card { height: 280px; }
 .mcard-sm.mcard .overview-stat { height: auto; }
+/* KPI 行内各卡等高：卡片包装拉伸填满栅格行，高度与同行最高卡一致 */
+.kpi-grid .mcard { display: flex; flex-direction: column; }
+.kpi-grid .mcard-body { flex: 1; }
+.kpi-grid .mcard-body .portkey-card { height: 100%; }
 
 /* 编辑态：顶部勾选条 + 内容禁交互 */
 .mcard-editing { border: 1px dashed #cbd5e1; border-radius: 14px; padding: 6px; background: #fff; }
