@@ -255,7 +255,7 @@ body {
   color: var(--text-muted);
 }
 .overview-stat-value {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 600;
   color: var(--text-main);
 }
@@ -310,16 +310,28 @@ body {
   background: transparent;
 }
 
-/* 概览统计卡内嵌的迷你趋势图 (deepseek API platform 风格)，无坐标轴、纯走势 */
-.overview-stat-chart {
-  height: 56px;
-  margin: 2px 0;
-}
-/* 概览统计卡的时间区间副标题，与上方额度 KPI 卡保持一致 */
+/* 概览统计卡的时间区间副标题，贴底展示，与上方额度 KPI 卡保持一致 */
 .overview-stat-sub {
   font-size: 11px;
   color: var(--text-light);
-  margin-top: -2px;
+  margin-top: auto;
+}
+
+/* 图表卡加粗标题 + 右上角数值角标 (对齐 OneLink 用量/消费汇总) */
+.card-title--lg {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+.card-badge {
+  background: #eef0fb;
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
 }
 
 /* Specific inner components */

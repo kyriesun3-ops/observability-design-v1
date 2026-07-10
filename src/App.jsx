@@ -735,12 +735,12 @@ const ConsumeRankCard = () => {
 const DistributionCard = ({ title, metric, setMetric, data, tip, modalities }) => {
   const rangeLabel = useContext(TimeRangeContext);
   const total = data.reduce((s, d) => s + d[metric], 0);
-  const fmtVal = (v) => metric === 'cost' ? fmtCNY(v) : fmtM(v);
   return (
     <div className="portkey-card">
       <div className="card-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div className="card-title">
+        {/* 对齐 OneLink：加粗标题 + 右侧 费用/Token 分段切换，不再展示大总数 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="card-title card-title--lg" style={{ marginBottom: 0 }}>
             <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6, maxWidth: '260px' }}>{tip}{modalities && <div style={{ marginTop: '8px' }}><Modalities value={modalities} /></div>}</div>} placement="top">
               <span className="card-title-hint">{title}</span>
             </ATooltip>
@@ -754,8 +754,7 @@ const DistributionCard = ({ title, metric, setMetric, data, tip, modalities }) =
             ))}
           </div>
         </div>
-        <div className="card-value">{fmtVal(total)}</div>
-        <div className="card-subtitle">{rangeLabel}</div>
+        <div className="card-subtitle" style={{ marginTop: '6px' }}>{rangeLabel}</div>
       </div>
       <div className="card-body">
         <div style={{ display: 'flex', height: '100%', alignItems: 'center' }}>
