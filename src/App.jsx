@@ -447,76 +447,61 @@ const BonusCard = () => (
     hint="平台赠送的代金余额，消费时优先于充值余额抵扣。" />
 );
 
-// --- 消耗概览迷你趋势卡 (deepseek API platform 风格) ---
-const MiniStatCard = ({ label, tipText, modalities, value, children }) => {
+// --- 消耗概览统计卡 (对齐 OneLink 总览：标题左 + 大数字右，下方浅灰子项块) ---
+const MiniStatCard = ({ label, tipText, modalities, value, subs }) => {
   const rangeLabel = useContext(TimeRangeContext);
   return (
     <div className="portkey-card overview-stat">
-      <div className="overview-stat-head">
+      {/* 无子项时 head 撑满剩余高度，大数字垂直居中 (对齐 OneLink「请求数」卡) */}
+      <div className="overview-stat-head" style={!subs ? { flex: 1 } : undefined}>
         <ATooltip title={<div style={{ fontSize: '12px', lineHeight: 1.6 }}>{tipText}<div style={{ marginTop: '8px' }}><Modalities value={modalities} /></div></div>} placement="top">
           <span className="overview-stat-label card-title-hint">{label}</span>
         </ATooltip>
         <span className="overview-stat-value">{value}</span>
       </div>
-      <div className="overview-stat-chart">{children}</div>
+      {subs && (
+        <div className="overview-sub-row">
+          {subs.map(s => (
+            <div key={s.label} className="overview-sub">
+              <span>{s.label}</span>
+              <b>{s.value}</b>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="overview-stat-sub">{rangeLabel}</div>
     </div>
   );
 };
 
 const ReqStatCard = () => (
-  <MiniStatCard label="请求数" tipText="API 请求总数。" modalities={['T', 'I', 'A', 'V']} value={AGG.totalReq.toLocaleString()}>
-    <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={dailyData} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-        <defs>
-          <linearGradient id="spkReq" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={COLORS.blue} stopOpacity={0.25} />
-            <stop offset="100%" stopColor={COLORS.blue} stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <XAxis dataKey="date" hide />
-        <Tooltip content={<CustomTooltip unit=" 次" />} cursor={CROSSHAIR} />
-        <Area type="monotone" dataKey="requests" name="请求数" stroke={COLORS.blue} strokeWidth={1.8} fill="url(#spkReq)" activeDot={ACTIVE_DOT} />
-      </AreaChart>
-    </ResponsiveContainer>
-  </MiniStatCard>
+  <MiniStatCard label="请求数" tipText="API 请求总数。" modalities={['T', 'I', 'A', 'V']}
+    value={AGG.totalReq.toLocaleString()} />
 );
 const TokenStatCard = () => (
-  <MiniStatCard label="总 token" tipText="Token 消耗总量，分输入/缓存/输出。" modalities={['T', 'I', 'A', 'V']} value={fmtM(AGG.totalToken)}>
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={dailyData} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-        <XAxis dataKey="date" hide />
-        <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
-        <Bar dataKey="inputTokens" name="输入" stackId="t" fill={COLORS.blue} maxBarSize={14} />
-        <Bar dataKey="cacheTokens" name="缓存" stackId="t" fill={COLORS.cyan} maxBarSize={14} />
-        <Bar dataKey="outputTokens" name="输出" stackId="t" fill={COLORS.purple} maxBarSize={14} radius={[2, 2, 0, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
-  </MiniStatCard>
+  <MiniStatCard label="总 token" tipText="Token 消耗总量，分输入/缓存/输出。" modalities={['T', 'I', 'A', 'V']}
+    value={fmtM(AGG.totalToken)}
+    subs={[
+      { label: '输入', value: fmtM(AGG.totalInput) },
+      { label: '缓存', value: fmtM(AGG.totalCache) },
+      { label: '输出', value: fmtM(AGG.totalOutput) },
+    ]} />
 );
 const ImgGenStatCard = () => (
-  <MiniStatCard label="图片生成" tipText="图片生成任务数，分成功/失败。" modalities={{ in: ['T'], out: 'I' }} value={AGG.totalImg.toLocaleString()}>
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={AGG.imgDaily} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-        <XAxis dataKey="date" hide />
-        <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
-        <Bar dataKey="ok" name="成功" stackId="g" fill={COLORS.purple} maxBarSize={14} />
-        <Bar dataKey="fail" name="失败" stackId="g" fill={COLORS.red} maxBarSize={14} radius={[2, 2, 0, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
-  </MiniStatCard>
+  <MiniStatCard label="图片生成" tipText="图片生成任务数，分成功/失败。" modalities={{ in: ['T'], out: 'I' }}
+    value={AGG.totalImg.toLocaleString()}
+    subs={[
+      { label: '成功', value: AGG.imgSuccess.toLocaleString() },
+      { label: '失败', value: AGG.imgFailed.toLocaleString() },
+    ]} />
 );
 const VideoGenStatCard = () => (
-  <MiniStatCard label="视频生成" tipText="视频生成任务数，分成功/失败。" modalities={{ in: ['T'], out: 'V' }} value={AGG.totalVideo.toLocaleString()}>
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={AGG.videoDaily} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-        <XAxis dataKey="date" hide />
-        <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
-        <Bar dataKey="ok" name="成功" stackId="g" fill={COLORS.cyan} maxBarSize={14} />
-        <Bar dataKey="fail" name="失败" stackId="g" fill={COLORS.red} maxBarSize={14} radius={[2, 2, 0, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
-  </MiniStatCard>
+  <MiniStatCard label="视频生成" tipText="视频生成任务数，分成功/失败。" modalities={{ in: ['T'], out: 'V' }}
+    value={AGG.totalVideo.toLocaleString()}
+    subs={[
+      { label: '成功', value: AGG.videoSuccess.toLocaleString() },
+      { label: '失败', value: AGG.videoFailed.toLocaleString() },
+    ]} />
 );
 
 // --- 用量汇总 / 消费汇总 ---
