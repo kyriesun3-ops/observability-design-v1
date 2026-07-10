@@ -339,7 +339,7 @@ const CustomTooltip = ({ active, payload, label, unit }) => {
 const RETENTION_YEARS = 3;
 const retentionStart = () => dayjs().startOf('day').subtract(RETENTION_YEARS, 'year');
 
-// --- TIME FILTER COMPONENT (对齐 Figma: 分段按钮 近1小时/近1天/近1月/自定义，选中项深色描边) ---
+// --- TIME FILTER COMPONENT (对齐 Figma: 分段按钮 近1小时/近1天/近30天/自定义，选中项深色描边) ---
 const timeOptions = [
   { label: '近1小时', value: '1h' },
   { label: '近1天', value: '24h' },
@@ -1758,7 +1758,7 @@ const App = () => {
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('ob_activeTab') || 'overview');
   const [timeRange, setTimeRange] = useState(() => {
     const v = localStorage.getItem('ob_timeRange') || '30d';
-    // 时间窗收敛为 近1小时/近1天/近1月/自定义 (对齐 Figma)，旧值 3d/7d 归入近1月
+    // 时间窗收敛为 近1小时/近1天/近30天/自定义 (对齐 Figma)，旧值 3d/7d 归入近30天
     return ['1h', '24h', '30d', 'custom'].includes(v) ? v : '30d';
   });
   const [customRange, setCustomRange] = useState(() => {
