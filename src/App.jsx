@@ -509,45 +509,50 @@ const VideoGenStatCard = () => (
     ]} />
 );
 
-// --- 用量汇总 / 消费汇总 ---
+// --- 用量汇总 / 消费汇总 (完全复刻 OneLink 总览：加粗标题 + 右上角数值角标 + 小时轴空态图) ---
+// 小时轴 00:00 ~ 23:00，坐标轴仅标注偶数小时；无数据时用量图为浅紫占位条、消费图为贴底横线
+const HOURLY_EMPTY = Array.from({ length: 24 }, (_, i) => ({
+  time: `${String(i).padStart(2, '0')}:00`, ph: 1, v: 0,
+}));
+
+// 汇总卡通用外壳：加粗标题左 + 浅紫数值角标右，下方直接放图
+const SummaryCard = ({ title, badge, children }) => (
+  <div className="portkey-card">
+    <div className="card-header">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+        <div className="card-title card-title--lg" style={{ marginBottom: 0 }}>{title}</div>
+        <span className="card-badge">{badge}</span>
+      </div>
+    </div>
+    <div className="card-body">{children}</div>
+  </div>
+);
+
 const UsageSummaryCard = () => (
-  <XCard title="用量汇总" badge={`${fmtM(AGG.totalToken)} Token`} subtitle="时间段内 Token 用量走势 (输入/缓存/输出)"
-    tip="Token 用量的走势，分输入/缓存/输出。"
-    modalities={['T', 'I', 'A', 'V']}>
+  <SummaryCard title="用量汇总" badge="0 Token">
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} ticks={AXIS_END_TICKS} interval={0} />
-        <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={2} tickFormatter={v => (v / 1_000_000).toFixed(0) + 'M'} />
-        <Tooltip content={<CustomTooltip unit=" 个" />} cursor={{ fill: '#f1f5f9' }} />
-        <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
-        <Bar dataKey="inputTokens" name="输入" stackId="t" fill={COLORS.blue} maxBarSize={30} />
-        <Bar dataKey="cacheTokens" name="缓存" stackId="t" fill={COLORS.cyan} maxBarSize={30} />
-        <Bar dataKey="outputTokens" name="输出" stackId="t" fill={COLORS.purple} maxBarSize={30} radius={[2, 2, 0, 0]} />
+      <BarChart data={HOURLY_EMPTY} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <XAxis dataKey="time" axisLine={false} tickLine={false} interval={1}
+          tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
+        <YAxis domain={[0, 1]} ticks={[0, 0.2, 0.4, 0.6, 0.8, 1]} axisLine={false} tickLine={false}
+          tick={{ fill: COLORS.textLight, fontSize: 11 }} />
+        <Bar dataKey="ph" fill="#eef0fb" maxBarSize={20} isAnimationActive={false} />
       </BarChart>
     </ResponsiveContainer>
-  </XCard>
+  </SummaryCard>
 );
 const SpendSummaryCard = () => (
-  <XCard title="消费汇总" badge={fmtCNY(AGG.totalSpend)} subtitle="时间段内消费金额走势"
-    tip="消费金额的走势。"
-    modalities={['T', 'I', 'A', 'V']}>
+  <SummaryCard title="消费汇总" badge="0 积分">
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-        <defs>
-          <linearGradient id="colorSpend" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={COLORS.green} stopOpacity={0.3} />
-            <stop offset="95%" stopColor={COLORS.green} stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} ticks={AXIS_END_TICKS} interval={0} />
-        <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={2} tickFormatter={v => '¥' + v} />
-        <Tooltip content={<CustomTooltip unit=" 元" />} cursor={CROSSHAIR} />
-        <Area type="monotone" dataKey="spend" name="消费金额" stroke={COLORS.green} strokeWidth={2} fillOpacity={1} fill="url(#colorSpend)" />
+      <AreaChart data={HOURLY_EMPTY} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <XAxis dataKey="time" axisLine={false} tickLine={false} interval={1}
+          tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} />
+        <YAxis domain={[0, 100]} ticks={[0, 20, 40, 60, 80, 100]} axisLine={false} tickLine={false}
+          tick={{ fill: COLORS.textLight, fontSize: 11 }} />
+        <Area type="monotone" dataKey="v" stroke={COLORS.blue} strokeWidth={2} fillOpacity={0} isAnimationActive={false} />
       </AreaChart>
     </ResponsiveContainer>
-  </XCard>
+  </SummaryCard>
 );
 
 // --- 按服务商 / 按模型分布 (独立组件, 内部维护 费用/Token 切换) ---
