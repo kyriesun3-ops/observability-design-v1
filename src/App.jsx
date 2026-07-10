@@ -511,7 +511,7 @@ const VideoGenStatCard = () => (
 
 // --- 用量汇总 / 消费汇总 ---
 const UsageSummaryCard = () => (
-  <XCard title="用量汇总" value={fmtM(AGG.totalToken)} subtitle="时间段内 Token 用量走势 (输入/缓存/输出)"
+  <XCard title="用量汇总" badge={`${fmtM(AGG.totalToken)} Token`} subtitle="时间段内 Token 用量走势 (输入/缓存/输出)"
     tip="Token 用量的走势，分输入/缓存/输出。"
     modalities={['T', 'I', 'A', 'V']}>
     <ResponsiveContainer width="100%" height="100%">
@@ -529,7 +529,7 @@ const UsageSummaryCard = () => (
   </XCard>
 );
 const SpendSummaryCard = () => (
-  <XCard title="消费汇总" value={fmtCNY(AGG.totalSpend)} subtitle="时间段内消费金额走势"
+  <XCard title="消费汇总" badge={fmtCNY(AGG.totalSpend)} subtitle="时间段内消费金额走势"
     tip="消费金额的走势。"
     modalities={['T', 'I', 'A', 'V']}>
     <ResponsiveContainer width="100%" height="100%">
