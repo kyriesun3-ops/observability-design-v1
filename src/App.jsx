@@ -416,6 +416,8 @@ const AGG = (() => {
   const cumRecharge = 50000, bonus = 2000, cumConsume = 38680.50;
   return {
     totalReq, totalToken, totalSpend,
+    totalInput, totalCache, totalOutput,
+    imgSuccess, imgFailed, videoSuccess, videoFailed,
     totalImg: imgSuccess + imgFailed, totalVideo: videoSuccess + videoFailed,
     cumRecharge, bonus, cumConsume, available: cumRecharge + bonus - cumConsume,
     imgDaily: dailyData.map(d => ({ date: d.date, ok: d.mmImageReq, fail: Math.max(1, Math.round(d.mmImageReq * 0.02)) })),
@@ -1809,6 +1811,11 @@ const App = () => {
   const rangeLabel = timeRange === 'custom' && customRange && customRange[0] && customRange[1]
     ? `数据来自 ${customRange[0].format('YYYY年MM月DD日')} 至 ${customRange[1].format('YYYY年MM月DD日')}`
     : (RANGE_LABELS[timeRange] || '数据来自 05月03日 至 06月01日');
+
+  // 恢复态越界提示：挂载后弹一次
+  useEffect(() => {
+    if (restoreRangeNotice) { message.warning(restoreRangeNotice, 5); restoreRangeNotice = null; }
+  }, []);
 
   useEffect(() => { localStorage.setItem('ob_activeTab', activeTab); }, [activeTab]);
   useEffect(() => { localStorage.setItem('ob_timeRange', timeRange); }, [timeRange]);
