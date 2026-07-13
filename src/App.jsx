@@ -788,10 +788,6 @@ const CacheHitCard = () => {
     agg: 'sum',
     unit: 'k tokens',
     yTickFormatter: v => v + 'k',
-    modalTitle: '缓存命中token数 · 按模型明细',
-    valueFmt: v => Math.round(v).toLocaleString() + 'k',
-    pctColumnTitle: '缓存命中率',
-    pctColumnRender: (_t, r) => MODEL_CACHE_HIT_RATES[r.model] || '65.4%'
   });
   return (
     <XCard
@@ -1146,54 +1142,14 @@ const MM_GEN_MODELS = ['image', 'audio', 'video'].flatMap(
   mod => GEN_MODELS[mod].map(m => ({ name: m.name, modality: mod, calls: m.c }))
 );
 
-const LINE_PALETTE = [COLORS.blue, COLORS.purple, COLORS.cyan, COLORS.orange, COLORS.green, COLORS.red];
-
-// 取 Top N 模型 (按窗口内累计排序)，只展示 Top N，不聚合「其他」
-const topN = (series, n = 5) => {
-  const models = Object.keys(series[0]).filter(k => k !== 'date');
-  const totals = models.map(m => [m, series.reduce((s, r) => s + r[m], 0)]).sort((a, b) => b[1] - a[1]);
-  const top = totals.slice(0, n).map(t => t[0]);
-  const data = series.map(r => {
-    const row = { date: r.date };
-    top.forEach(m => { row[m] = r[m]; });
-    return row;
-  });
-  return { data, keys: top };
-};
-
-const renderKeyedLines = (keys) => keys.map((k, i) => (
-  <Line key={k} type="monotone" dataKey={k} name={k}
-    stroke={LINE_PALETTE[i % LINE_PALETTE.length]}
-    strokeWidth={1.8} dot={false} activeDot={ACTIVE_DOT} />
-));
-
-// 各模型的缓存命中率 (mock 数据)
-const MODEL_CACHE_HIT_RATES = {
-  'gpt-4o-mini': '74.5%',
-  'gpt-4o': '68.2%',
-  'claude-3-haiku': '65.4%',
-  'claude-3-5-sonnet': '70.1%',
-  'gemini-1.5-flash': '62.8%',
-  'qwen-max': '59.2%',
-  'gemini-1.5-pro': '58.5%',
-  'qwen-plus': '55.1%',
-  'deepseek-v3': '66.3%',
-  'llama-3.1-70b': '52.4%',
-  'mistral-large': '54.2%',
-  'glm-4': '48.9%',
-};
-
-// 指标卡片图表逻辑(hook)：返回 标题行展开图标 / 数值行切换控件 / 图表 / 弹窗
-// 总览 ⇄ 按模型(仅Top5) 切换 + 展开详情(全量弹窗) + 按筛选模型联动
-const useBreakdown = ({ totalData, totalKey, totalName, totalColor, byModel, agg = 'sum', unit, yTickFormatter, modalTitle, valueFmt, controlExtra, pctColumnTitle = '占比', pctColumnRender }) => {
+// 指标卡片图表逻辑(hook)：只展示按时间聚合后的总览趋势线
+// 不提供总览/按模型切换、展开详情、点击下钻；保留全局模型筛选联动（筛选后由选中模型按 agg 重新聚合）
+const useBreakdown = ({ totalData, totalKey, totalName, totalColor, byModel, agg = 'sum', unit, yTickFormatter, controlExtra }) => {
   const activeModels = useContext(FilterContext);
-  const [mode, setMode] = useState('total');
-  const [open, setOpen] = useState(false);
 
   const allModels = Object.keys(byModel[0]).filter(k => k !== 'date');
   const scoped = activeModels.filter(m => allModels.includes(m)); // 生效的模型筛选
   const singleModel = scoped.length === 1;
-  const effMode = singleModel ? 'total' : mode; // 单模型筛选时"按模型"无意义，强制总览
 
   // 受筛选影响的"总览"数据：未筛选→全量聚合(传入)；筛选→由选中模型按 agg 再聚合
   const scopedTotalData = scoped.length === 0 ? totalData : byModel.map(r => {
@@ -1203,61 +1159,9 @@ const useBreakdown = ({ totalData, totalKey, totalName, totalColor, byModel, agg
   const scopedTotalKey = scoped.length === 0 ? totalKey : '_v';
   const scopedTotalName = scoped.length === 0 ? totalName : (singleModel ? scoped[0] : `已选 ${scoped.length} 个模型合计`);
 
-  // "按模型"数据：未筛选→只展示 Top5（不聚合"其他"）；筛选→只画选中的模型
-  const modelView = scoped.length === 0
-    ? topN(byModel, 5)
-    : { data: byModel.map(r => { const row = { date: r.date }; scoped.forEach(m => { row[m] = r[m]; }); return row; }), keys: scoped };
-
-  // 详情表：筛选时只列选中模型，否则全量
-  const tableModels = scoped.length === 0 ? allModels : scoped;
-  const aggVal = (m) => {
-    const s = byModel.reduce((acc, r) => acc + r[m], 0);
-    return agg === 'avg' ? s / byModel.length : s;
-  };
-  const tableRows = tableModels.map(m => ({ key: m, model: m, value: aggVal(m) })).sort((a, b) => b.value - a.value);
-  const grandTotal = tableRows.reduce((s, r) => s + r.value, 0);
-  const tableColumns = [
-    { title: '排名', key: 'rank', width: 56, render: (_t, _r, i) => <span style={{ fontWeight: 600, color: i < 5 ? COLORS.orange : COLORS.textMain }}>{i + 1}</span> },
-    { title: '模型', dataIndex: 'model', key: 'model', render: t => <span style={{ fontFamily: 'monospace', color: COLORS.blue }}>{t}</span> },
-    { title: agg === 'avg' ? '平均值' : '累计值', dataIndex: 'value', key: 'value', align: 'right', sorter: (a, b) => a.value - b.value, defaultSortOrder: 'descend', render: v => valueFmt(v) },
-    ...(agg === 'sum' ? [{ title: pctColumnTitle, key: 'pct', align: 'right', render: pctColumnRender || ((_t, r) => ((r.value / grandTotal) * 100).toFixed(1) + '%') }] : []),
-  ];
-
-  const extra = (
-    <span onClick={() => setOpen(true)} title="展开详情"
-      style={{ cursor: 'pointer', color: COLORS.textLight, fontSize: '15px', lineHeight: 1, display: 'inline-flex' }}>
-      <FullscreenOutlined />
-    </span>
-  );
-
-  const control = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      {controlExtra}
-      {/* 文案式分段切换：总览 / 按模型，与「费用 / Token」切换保持一致的设计 */}
-      <div style={{ display: 'flex', border: `1px solid ${COLORS.gray}`, borderRadius: '6px', overflow: 'hidden', fontSize: '12px' }}>
-        {[['total', '总览'], ['model', '按模型']].map(([k, lbl]) => {
-          const disabled = singleModel && k === 'model';
-          const isActive = effMode === k;
-          return (
-            <ATooltip key={k} title={disabled ? '已按单个模型筛选，无需再拆分' : ''} placement="top">
-              <span
-                onClick={() => { if (!disabled) setMode(k); }}
-                style={{
-                  padding: '3px 10px',
-                  cursor: disabled ? 'not-allowed' : 'pointer',
-                  background: isActive ? COLORS.blue : '#fff',
-                  color: disabled ? '#cbd5e1' : (isActive ? '#fff' : '#64748b'),
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.2s'
-                }}>
-                {lbl}
-              </span>
-            </ATooltip>
-          );
-        })}
-      </div>
-    </div>
-  );
+  const control = controlExtra ? (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>{controlExtra}</div>
+  ) : null;
 
   const chart = (
     <>
@@ -1267,44 +1171,18 @@ const useBreakdown = ({ totalData, totalKey, totalName, totalColor, byModel, agg
         </div>
       )}
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={effMode === 'model' ? modelView.data : scopedTotalData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+        <LineChart data={scopedTotalData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
           <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} ticks={AXIS_END_TICKS} interval={0} />
           <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={2} tickFormatter={yTickFormatter} />
           <Tooltip content={<CustomTooltip unit={unit} />} cursor={CROSSHAIR} />
-          {effMode === 'model' && <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />}
-          {effMode === 'model'
-            ? renderKeyedLines(modelView.keys)
-            : <Line type="monotone" dataKey={scopedTotalKey} name={scopedTotalName} stroke={totalColor} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />}
+          <Line type="monotone" dataKey={scopedTotalKey} name={scopedTotalName} stroke={totalColor} strokeWidth={2} dot={false} activeDot={ACTIVE_DOT} />
         </LineChart>
       </ResponsiveContainer>
     </>
   );
 
-  const modal = (
-    <Modal open={open} onCancel={() => setOpen(false)} footer={null} width={920} title={modalTitle}>
-      <div style={{ fontSize: '12px', color: COLORS.textLight, margin: '4px 0 12px' }}>
-        {scoped.length === 0
-          ? <>图表为 Top 5 模型；下表为全部 {tableRows.length} 个模型（{agg === 'avg' ? '窗口内平均' : '窗口内累计'}，可点表头排序）。</>
-          : <>已按筛选锁定 {tableRows.length} 个模型（{agg === 'avg' ? '窗口内平均' : '窗口内累计'}）。</>}
-      </div>
-      <div style={{ height: '280px', marginBottom: '16px' }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={modelView.data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} dy={10} ticks={AXIS_END_TICKS} interval={0} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.textLight, fontSize: 11 }} tickCount={2} tickFormatter={yTickFormatter} />
-            <Tooltip content={<CustomTooltip unit={unit} />} cursor={CROSSHAIR} />
-            <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
-            {renderKeyedLines(modelView.keys)}
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-      <Table columns={tableColumns} dataSource={tableRows} pagination={false} rowKey="key" size="small" scroll={{ y: 240 }} />
-    </Modal>
-  );
-
-  return { extra, control, chart, modal };
+  return { control, chart };
 };
 
 // --- MAIN APP COMPONENT ---
