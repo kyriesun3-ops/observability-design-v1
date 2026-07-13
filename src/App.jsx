@@ -920,14 +920,13 @@ const LatencyCard = () => {
 
 // 平均首字延迟 (TTFT) 卡
 const TtftCard = () => {
-  const ttft = useBreakdown({ totalData: dailyData, totalKey: 'ttft', totalName: '首字延迟', totalColor: COLORS.green, byModel: ttftByModel, agg: 'avg', unit: ' ms', modalTitle: '首字延迟 TTFT · 按模型明细', valueFmt: v => Math.round(v) + ' ms' });
+  const ttft = useBreakdown({ totalData: dailyData, totalKey: 'ttft', totalName: '首字延迟', totalColor: COLORS.green, byModel: ttftByModel, agg: 'avg', unit: ' ms' });
   return (
     <XCard title="平均首字延迟 (TTFT)" value="350 ms"
       tip="从发起请求到首个 Token 返回的耗时（TTFT），衡量流式初始体验。计算：对区间内各请求 TTFT 取平均。"
       modalities={['T']}
-      extra={ttft.extra} control={ttft.control}>
+      control={ttft.control}>
       {ttft.chart}
-      {ttft.modal}
     </XCard>
   );
 };
@@ -972,7 +971,7 @@ const MmCallCard = () => (
   </XCard>
 );
 
-// 整合卡片②：平均生成时长 —— 图像/视频/音频 标签切换(默认视频) + 总览/按模型(useBreakdown) + 分位
+// 整合卡片②：平均生成时长 —— 图像/视频/音频 标签切换(默认视频) + 分位切换，仅展示时间聚合趋势
 const GenTimeCard = () => {
   const [modality, setModality] = useState('video');
   const [p, setP] = useState('p50');
