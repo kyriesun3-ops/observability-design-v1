@@ -827,9 +827,8 @@ const ErrorRateCard = () => {
     <XCard title="报错率" value="4.2%"
       tip="服务报错的请求占比。"
       modalities={['T', 'I', 'A', 'V']}
-      extra={rate.extra} control={rate.control}>
+      control={rate.control}>
       {rate.chart}
-      {rate.modal}
     </XCard>
   );
 };
@@ -908,14 +907,13 @@ const LatencyCard = () => {
       <option value="p99">P99</option>
     </select>
   );
-  const lat = useBreakdown({ totalData: dailyData, totalKey: percentile, totalName: `${percentile.toUpperCase()} 延迟`, totalColor: COLORS.blue, byModel: latByModel[percentile], agg: 'avg', unit: ' ms', modalTitle: '端到端延迟 · 按模型明细', valueFmt: v => Math.round(v) + ' ms', controlExtra: pSelect });
+  const lat = useBreakdown({ totalData: dailyData, totalKey: percentile, totalName: `${percentile.toUpperCase()} 延迟`, totalColor: COLORS.blue, byModel: latByModel[percentile], agg: 'avg', unit: ' ms', controlExtra: pSelect });
   return (
     <XCard title="平均延迟" value={`${percentile.toUpperCase()}: 1.2s`}
       tip="请求端到端总耗时的分位数（P50/P95/P99），可切换分位看长尾。计算：对区间内全部请求的端到端耗时取所选分位（非按请求量加权）。"
       modalities={['T']}
-      extra={lat.extra} control={lat.control}>
+      control={lat.control}>
       {lat.chart}
-      {lat.modal}
     </XCard>
   );
 };
