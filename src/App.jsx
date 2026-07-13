@@ -1067,7 +1067,7 @@ const MmCostCard = () => (
 
 // =====================================================================
 // 按模型维度的呈现 (方案 B, 分层) —— 图内「总览 ⇄ 按模型」切换 + 「展开详情」全量弹窗
-//   · 切换 = 轻量快览：聚合 ⇄ 细分；高基数自动收敛为 Top5 + 其他
+//   · 切换 = 轻量快览：聚合 ⇄ 细分；高基数只展示 Top5（不聚合「其他」）
 //   · 展开 = 深查：弹窗内放 Top5 大图 + 全量模型可排序表
 // =====================================================================
 const MODEL_DATES = ['05月03日', '05月08日', '05月13日', '05月18日', '05月23日', '05月28日', '06月01日'];
@@ -1163,7 +1163,7 @@ const topN = (series, n = 5) => {
 
 const renderKeyedLines = (keys) => keys.map((k, i) => (
   <Line key={k} type="monotone" dataKey={k} name={k}
-    stroke={k === '其他' ? COLORS.textLight : LINE_PALETTE[i % LINE_PALETTE.length]}
+    stroke={LINE_PALETTE[i % LINE_PALETTE.length]}
     strokeWidth={1.8} dot={false} activeDot={ACTIVE_DOT} />
 ));
 
@@ -1184,7 +1184,7 @@ const MODEL_CACHE_HIT_RATES = {
 };
 
 // 指标卡片图表逻辑(hook)：返回 标题行展开图标 / 数值行切换控件 / 图表 / 弹窗
-// 总览 ⇄ 按模型(Top5+其他) 切换 + 展开详情(全量弹窗) + 按筛选模型联动
+// 总览 ⇄ 按模型(仅Top5) 切换 + 展开详情(全量弹窗) + 按筛选模型联动
 const useBreakdown = ({ totalData, totalKey, totalName, totalColor, byModel, agg = 'sum', unit, yTickFormatter, modalTitle, valueFmt, controlExtra, pctColumnTitle = '占比', pctColumnRender }) => {
   const activeModels = useContext(FilterContext);
   const [mode, setMode] = useState('total');
@@ -1203,9 +1203,9 @@ const useBreakdown = ({ totalData, totalKey, totalName, totalColor, byModel, agg
   const scopedTotalKey = scoped.length === 0 ? totalKey : '_v';
   const scopedTotalName = scoped.length === 0 ? totalName : (singleModel ? scoped[0] : `已选 ${scoped.length} 个模型合计`);
 
-  // "按模型"数据：未筛选→Top5 + 其他；筛选→只画选中的模型
+  // "按模型"数据：未筛选→只展示 Top5（不聚合"其他"）；筛选→只画选中的模型
   const modelView = scoped.length === 0
-    ? topNWithOther(byModel, 5, agg)
+    ? topN(byModel, 5)
     : { data: byModel.map(r => { const row = { date: r.date }; scoped.forEach(m => { row[m] = r[m]; }); return row; }), keys: scoped };
 
   // 详情表：筛选时只列选中模型，否则全量
@@ -1285,7 +1285,7 @@ const useBreakdown = ({ totalData, totalKey, totalName, totalColor, byModel, agg
     <Modal open={open} onCancel={() => setOpen(false)} footer={null} width={920} title={modalTitle}>
       <div style={{ fontSize: '12px', color: COLORS.textLight, margin: '4px 0 12px' }}>
         {scoped.length === 0
-          ? <>图表为 Top 5 模型 + 其他聚合；下表为全部 {tableRows.length} 个模型（{agg === 'avg' ? '窗口内平均' : '窗口内累计'}，可点表头排序）。</>
+          ? <>图表为 Top 5 模型；下表为全部 {tableRows.length} 个模型（{agg === 'avg' ? '窗口内平均' : '窗口内累计'}，可点表头排序）。</>
           : <>已按筛选锁定 {tableRows.length} 个模型（{agg === 'avg' ? '窗口内平均' : '窗口内累计'}）。</>}
       </div>
       <div style={{ height: '280px', marginBottom: '16px' }}>
