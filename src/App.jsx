@@ -992,16 +992,14 @@ const GenTimeCard = () => {
   const mb = useBreakdown({
     totalData: dailyData, totalKey: dk, totalName: `${meta.label} ${p.toUpperCase()}`, totalColor: meta.color,
     byModel: genByModel[modality][p], agg: 'avg', unit: ' s',
-    modalTitle: `${meta.label}生成时长 · 按模型明细`, valueFmt: v => v.toFixed(1) + ' s',
     controlExtra: <>{modalityTabs}{pSel}</>,
   });
   return (
     <XCard title="平均生成时长" value={`${meta.label} ${p.toUpperCase()}: ${dailyData.at(-1)[dk]}s`}
       tip="多模态生成任务从提交到产物完成的生成时长分位数（P50/P95/P99），可按模态切换。计算：对区间内该模态全部生成任务的处理时长取所选分位（非按请求量加权）。"
       modalities={['I', 'A', 'V']}
-      extra={mb.extra} control={mb.control}>
+      control={mb.control}>
       {mb.chart}
-      {mb.modal}
     </XCard>
   );
 };
