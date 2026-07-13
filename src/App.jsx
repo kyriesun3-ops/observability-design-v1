@@ -800,9 +800,8 @@ const CacheHitCard = () => {
       }
       tip="缓存命中Input Token数。"
       modalities={['T']}
-      extra={hits.extra} control={hits.control}>
+      control={hits.control}>
       {hits.chart}
-      {hits.modal}
     </XCard>
   );
 };
@@ -810,7 +809,7 @@ const CacheHitCard = () => {
 // 缓存节省成本卡
 const CacheSavingsCard = () => {
   const totalSavings = dailyData.reduce((s, d) => s + d.savings, 0);
-  const savings = useBreakdown({ totalData: dailyData, totalKey: 'savings', totalName: '节省成本', totalColor: COLORS.green, byModel: cacheSavingsByModel, agg: 'sum', unit: ' 元', yTickFormatter: v => '¥' + v, modalTitle: '缓存节省成本 · 按模型明细', valueFmt: v => fmtCNY(v) });
+  const savings = useBreakdown({ totalData: dailyData, totalKey: 'savings', totalName: '节省成本', totalColor: COLORS.green, byModel: cacheSavingsByModel, agg: 'sum', unit: ' 元', yTickFormatter: v => '¥' + v });
   return (
     <XCard title="缓存节省成本" value={fmtCNY(totalSavings)}
       tip="命中缓存免去真实模型调用所估算的累计节省金额。"
