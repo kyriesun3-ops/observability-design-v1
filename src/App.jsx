@@ -6,7 +6,7 @@ import {
 import { ThunderboltOutlined, WarningOutlined, SafetyCertificateOutlined,
   DashboardOutlined, PlaySquareOutlined, DesktopOutlined,
   SyncOutlined, SearchOutlined, CalendarOutlined, DownOutlined,
-  AppstoreOutlined, RightOutlined, FullscreenOutlined,
+  AppstoreOutlined, RightOutlined,
   CreditCardOutlined, UserOutlined, InfoCircleOutlined, GlobalOutlined,
   EditOutlined, PlusOutlined, CheckOutlined, CloseOutlined, HolderOutlined,
   LoadingOutlined, ReloadOutlined, TagOutlined, UnorderedListOutlined,
