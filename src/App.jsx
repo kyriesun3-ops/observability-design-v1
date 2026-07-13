@@ -814,16 +814,15 @@ const CacheSavingsCard = () => {
     <XCard title="缓存节省成本" value={fmtCNY(totalSavings)}
       tip="命中缓存免去真实模型调用所估算的累计节省金额。"
       modalities={['T']}
-      extra={savings.extra} control={savings.control}>
+      control={savings.control}>
       {savings.chart}
-      {savings.modal}
     </XCard>
   );
 };
 
 // --- 2. Error Analytics (各卡拆分为独立组件) ---
 const ErrorRateCard = () => {
-  const rate = useBreakdown({ totalData: dailyData, totalKey: 'errorRate', totalName: '报错率', totalColor: COLORS.red, byModel: errorRateByModel, agg: 'avg', unit: '%', modalTitle: '报错率 · 按模型明细', valueFmt: v => v.toFixed(1) + '%' });
+  const rate = useBreakdown({ totalData: dailyData, totalKey: 'errorRate', totalName: '报错率', totalColor: COLORS.red, byModel: errorRateByModel, agg: 'avg', unit: '%' });
   return (
     <XCard title="报错率" value="4.2%"
       tip="服务报错的请求占比。"
