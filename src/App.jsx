@@ -1341,6 +1341,158 @@ const FIXED_TABS = [
 ];
 const TAB_LABEL = (dash, key) => FIXED_TABS.find(t => t.key === key)?.label || dash.groups.find(g => g.id === key)?.name || key;
 
+// --- 分组标签导航 ---
+// 结构: [总览(固定)] [左箭头] [可横向滚动标签区] [右箭头] [更多] [分组管理]
+// 溢出判定 scrollWidth > clientWidth；仅溢出时显示箭头与「更多」；两端箭头置灰不隐藏，避免布局跳动
+const GroupTabNav = ({ groups, tabKey, onSelect, onManage }) => {
+  const scrollerRef = useRef(null);
+  const moreWrapRef = useRef(null);
+  const [overflow, setOverflow] = useState(false);
+  const [atStart, setAtStart] = useState(true);
+  const [atEnd, setAtEnd] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  // 滚动区条目：固定 Tab(除总览) + 自定义分组；「更多」列表同源(不含总览)
+  const items = [
+    ...FIXED_TABS.slice(1).map(t => ({ key: t.key, label: t.label, icon: t.icon })),
+    ...groups.map(g => ({ key: g.id, label: g.name, icon: <TagOutlined /> })),
+  ];
+  const itemsSig = items.map(i => `${i.key}:${i.label}`).join('|');
+
+  // 溢出与两端状态检测；不再溢出时滚动位置复位到最左端
+  const updateState = () => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const ov = el.scrollWidth - el.clientWidth > 1;
+    setOverflow(ov);
+    if (!ov) {
+      if (el.scrollLeft !== 0) el.scrollLeft = 0;
+      setAtStart(true); setAtEnd(true);
+      return;
+    }
+    setAtStart(el.scrollLeft <= 1);
+    setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 1);
+  };
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    // 首次渲染完成后的 rAF 中测量，避免过早测量导致箭头不显示
+    const raf = requestAnimationFrame(updateState);
+    // ResizeObserver 覆盖：窗口缩放 / 侧边栏展开收起 / 容器宽度变化
+    const ro = new ResizeObserver(updateState);
+    ro.observe(el);
+    const onScroll = () => updateState();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    // 滚轮/触控板 → 横向滚动，并阻止带动整页滚动
+    const onWheel = (e) => {
+      if (el.scrollWidth <= el.clientWidth) return;
+      const delta = Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      e.preventDefault();
+      el.scrollLeft += delta;
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    window.addEventListener('resize', updateState);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      el.removeEventListener('scroll', onScroll);
+      el.removeEventListener('wheel', onWheel);
+      window.removeEventListener('resize', updateState);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 分组新增/删除/改名后，渲染完成再重新判定溢出
+  useEffect(() => {
+    const raf = requestAnimationFrame(updateState);
+    return () => cancelAnimationFrame(raf);
+  }, [itemsSig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 当前分组自动平滑滚入可视区域(优先居中)；总览不滚动。覆盖刷新/链接直达场景
+  useEffect(() => {
+    if (tabKey === 'overview') return;
+    const el = scrollerRef.current;
+    if (!el) return;
+    const raf = requestAnimationFrame(() => {
+      const esc = (window.CSS && CSS.escape) ? CSS.escape(tabKey) : tabKey;
+      const node = el.querySelector(`[data-tabkey="${esc}"]`);
+      if (!node || el.scrollWidth <= el.clientWidth) return;
+      const target = node.offsetLeft - (el.clientWidth - node.offsetWidth) / 2;
+      el.scrollTo({ left: Math.max(0, Math.min(target, el.scrollWidth - el.clientWidth)), behavior: 'smooth' });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [tabKey, itemsSig]);
+
+  // 「更多」浮层：点击外部 / Esc 关闭
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDown = (e) => { if (moreWrapRef.current && !moreWrapRef.current.contains(e.target)) setMoreOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setMoreOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [moreOpen]);
+
+  // 箭头滚动：约当前可视宽度的 75%，平滑滚动；结束后由 scroll 事件回收状态
+  const page = (dir) => {
+    const el = scrollerRef.current;
+    if (el) el.scrollBy({ left: dir * el.clientWidth * 0.75, behavior: 'smooth' });
+  };
+
+  const kw = query.trim().toLowerCase();
+  const filtered = kw ? items.filter(i => (i.label || '').toLowerCase().includes(kw)) : items;
+
+  const renderTab = (item) => (
+    <div key={item.key} data-tabkey={item.key} title={item.label}
+      className={`nav-tab gtab-item ${tabKey === item.key ? 'active' : ''}`}
+      onClick={() => onSelect(item.key)}>
+      {item.icon}<span className="gtab-label">{item.label}</span>
+    </div>
+  );
+
+  return (
+    <div className="gtab-nav">
+      {renderTab({ key: 'overview', label: FIXED_TABS[0].label, icon: FIXED_TABS[0].icon })}
+      <button type="button" className={`gtab-arrow ${overflow ? 'is-shown' : ''}`}
+        disabled={atStart} onClick={() => page(-1)} aria-label="向左滚动"><LeftOutlined /></button>
+      <div className="gtab-scroller" ref={scrollerRef}>
+        {items.map(renderTab)}
+      </div>
+      <button type="button" className={`gtab-arrow ${overflow ? 'is-shown' : ''}`}
+        disabled={atEnd} onClick={() => page(1)} aria-label="向右滚动"><RightOutlined /></button>
+      <div className={`gtab-more-wrap ${overflow ? 'is-shown' : ''}`} ref={moreWrapRef}>
+        <div className="nav-tab gtab-item gtab-more-btn" onClick={() => { setMoreOpen(o => !o); setQuery(''); }}>
+          更多 <DownOutlined style={{ fontSize: '10px' }} />
+        </div>
+        {moreOpen && (
+          <div className="gtab-more-panel">
+            {items.length > 8 && (
+              <div className="gtab-more-search">
+                <Input size="small" allowClear autoFocus
+                  prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+                  placeholder="搜索分组名称" value={query} onChange={e => setQuery(e.target.value)} />
+              </div>
+            )}
+            <div className="gtab-more-list">
+              {filtered.map(i => (
+                <div key={i.key} title={i.label}
+                  className={`gtab-more-item ${tabKey === i.key ? 'active' : ''}`}
+                  onClick={() => { onSelect(i.key); setMoreOpen(false); }}>
+                  <span className="gtab-more-item-label">{i.icon} {i.label}</span>
+                  {tabKey === i.key && <CheckOutlined style={{ color: '#1677ff', fontSize: '12px' }} />}
+                </div>
+              ))}
+              {!filtered.length && <div className="gtab-more-empty">无匹配分组</div>}
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="nav-tab gtab-item gtab-manage" title="管理分组" onClick={onManage}><EditOutlined /></div>
+    </div>
+  );
+};
+
 // 布局状态: lists (每个 tab/分组 的指标 key 列表) + sizes (卡片尺寸) + groups (自定义分组)
 const DEFAULT_DASH = { lists: DEFAULT_LISTS, sizes: {}, groups: [] };
 const cloneDash = (d) => JSON.parse(JSON.stringify(d));
