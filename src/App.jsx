@@ -1927,6 +1927,7 @@ const App = () => {
       return d;
     }, `已移除“${METRIC_MAP[k]?.title}”`),
     saveGroups: (nextGroups) => {
+      const prevGroups = effDash.groups;
       applyChange(d => {
         const removed = d.groups.filter(g => !nextGroups.some(n => n.id === g.id));
         removed.forEach(g => { delete d.lists[g.id]; delete d.sizes[g.id]; });
@@ -1934,6 +1935,17 @@ const App = () => {
         d.groups = nextGroups;
         return d;
       }, '分组已保存');
+      // 选中规则：新建分组 → 自动选中最新分组(标签导航会自动滚动到可视区域)；
+      // 删除当前分组 → 优先右侧相邻分组，无则左侧，均无则回到总览；删除非当前分组保持不变
+      const added = nextGroups.filter(g => !prevGroups.some(p => p.id === g.id));
+      if (added.length) {
+        setActiveTab(added[added.length - 1].id);
+      } else if (prevGroups.some(g => g.id === activeTab) && !nextGroups.some(g => g.id === activeTab)) {
+        const idx = prevGroups.findIndex(g => g.id === activeTab);
+        const right = prevGroups.slice(idx + 1).find(g => nextGroups.some(n => n.id === g.id));
+        const left = prevGroups.slice(0, idx).reverse().find(g => nextGroups.some(n => n.id === g.id));
+        setActiveTab(right?.id ?? left?.id ?? 'overview');
+      }
     },
   };
 
@@ -2023,17 +2035,10 @@ const App = () => {
               </div>
             </div>
 
-            {/* tab 行：固定 tab + 自定义分组 tab + 分组管理入口；编辑态右侧出现批量工具栏 */}
+            {/* tab 行：[总览] [箭头] [可滚动分组标签区] [箭头] [更多] [分组管理]；编辑态右侧出现批量工具栏 */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div className="nav-tabs" style={{ overflowX: 'auto', paddingBottom: '2px', flex: 1, minWidth: 0 }}>
-                {FIXED_TABS.map(t => (
-                  <div key={t.key} className={`nav-tab ${tabKey === t.key ? 'active' : ''}`} onClick={() => setActiveTab(t.key)}>{t.icon} {t.label}</div>
-                ))}
-                {effDash.groups.map(g => (
-                  <div key={g.id} className={`nav-tab ${tabKey === g.id ? 'active' : ''}`} onClick={() => setActiveTab(g.id)}><TagOutlined /> {g.name}</div>
-                ))}
-                <div className="nav-tab" title="管理分组" onClick={() => setGroupOpen(true)}><EditOutlined /></div>
-              </div>
+              <GroupTabNav groups={effDash.groups} tabKey={tabKey}
+                onSelect={setActiveTab} onManage={() => setGroupOpen(true)} />
               {editMode && (
                 <div className="edit-toolbar">
                   <Checkbox
