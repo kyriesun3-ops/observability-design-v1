@@ -1401,13 +1401,13 @@ const GroupTabNav = ({ groups, tabKey, onSelect, onManage }) => {
       el.removeEventListener('wheel', onWheel);
       window.removeEventListener('resize', updateState);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // 分组新增/删除/改名后，渲染完成再重新判定溢出
   useEffect(() => {
     const raf = requestAnimationFrame(updateState);
     return () => cancelAnimationFrame(raf);
-  }, [itemsSig]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [itemsSig]);
 
   // 当前分组自动平滑滚入可视区域(优先居中)；总览不滚动。覆盖刷新/链接直达场景
   useEffect(() => {
