@@ -98,6 +98,149 @@ body {
   background-color: var(--tab-active-border);
 }
 
+/* --- 分组标签导航: [总览] [箭头] [可滚动标签区] [箭头] [更多] [分组管理] --- */
+.gtab-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0; /* 允许中间滚动区收缩，箭头/按钮不被挤出 */
+}
+
+.gtab-item {
+  flex-shrink: 0;
+  max-width: 180px; /* 名称过长单行省略，不压缩其它标签 */
+  white-space: nowrap;
+}
+
+.gtab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gtab-scroller {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px; /* 给选中态下划线留出空间，避免被裁剪 */
+  overscroll-behavior-x: contain; /* 滚动到边缘不带动整页 */
+  scrollbar-width: none; /* 隐藏原生滚动条 (Firefox) */
+  -ms-overflow-style: none;
+}
+
+.gtab-scroller::-webkit-scrollbar {
+  display: none; /* 隐藏原生滚动条 (WebKit) */
+}
+
+/* 箭头：仅溢出时通过 .is-shown 显示 (明确用 display 控制，不依赖 hidden 属性) */
+.gtab-arrow {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: #475569;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.gtab-arrow.is-shown {
+  display: inline-flex;
+}
+
+.gtab-arrow:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+/* 到达两端时置灰不可点，但不隐藏，避免布局跳动 */
+.gtab-arrow:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+  background: transparent;
+}
+
+.gtab-more-wrap {
+  position: relative;
+  display: none;
+  flex-shrink: 0;
+}
+
+.gtab-more-wrap.is-shown {
+  display: block;
+}
+
+.gtab-more-btn {
+  gap: 4px;
+}
+
+.gtab-more-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 50;
+  width: 220px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  padding: 6px;
+}
+
+.gtab-more-search {
+  padding: 2px 2px 6px;
+}
+
+.gtab-more-list {
+  max-height: 320px; /* 分组较多时列表内部纵向滚动 */
+  overflow-y: auto;
+}
+
+.gtab-more-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #334155;
+  cursor: pointer;
+}
+
+.gtab-more-item:hover {
+  background: #f8fafc;
+}
+
+.gtab-more-item.active {
+  color: #1677ff;
+  font-weight: 600;
+  background: #eff6ff;
+}
+
+.gtab-more-item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gtab-more-empty {
+  padding: 16px 0;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
 /* Main Content Area */
 .main-content {
   padding: 16px 24px;
